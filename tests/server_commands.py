@@ -22,6 +22,7 @@ class TestIOLoop(unittest.TestCase):
         CustomAssertionError.io_loop = self.loop
         self.client = rutabaga.Client(io_loop=self.loop)
         self.client.connection.connect()
+        self.client.select(9)
         self.client.flushdb()
 
     def tearDown(self):
