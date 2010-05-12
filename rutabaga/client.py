@@ -109,7 +109,7 @@ class Client(object):
 
     def format_reply(self, command, data):
         if command not in Client.REPLY_MAP:
-            return 'UNKNOWN: \"%s\"' % (data,)
+            return data
         return Client.REPLY_MAP[command](data)
 
     def try_to_loop(self):
