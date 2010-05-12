@@ -13,6 +13,15 @@ NOOP_CB = lambda _result, _error: None
 Task = namedtuple('Task', 'command callback args kwargs')
 
 
+def string_keys_to_dict(key_string, callback):
+    return dict([(key, callback) for key in key_string.split()])
+
+def dict_merge(*dicts):
+    merged = {}
+    [merged.update(d) for d in dicts]
+    return merged
+
+
 class Connection(object):
     def __init__(self, host, port, timeout=None, io_loop=None):
         self.host = host
@@ -50,20 +59,21 @@ class Connection(object):
 
 
 class Client(object):
-    REPLY_MAP = {'SET': lambda x: x == 'OK',
-                 'FLUSHDB': lambda x: x == 'OK',
-                 'HGETALL': lambda pairs: dict(zip(pairs[::2], pairs[1::2])),
-                 'GET': str,
-                 'DEL': bool,
-                 'HMSET': bool,
-                 'HSET': bool,
-                 'HDEL': bool,
-                 'HGET': lambda x: x or '',
-                 'APPEND': int,
-                 'DBSIZE': int, 
-                 'SUBSTR': str,
-                 'HLEN': int,
-                 }
+    REPLY_MAP = dict_merge(
+        string_keys_to_dict('DEL EXISTS HDEL HEXISTS HMSET',
+                            bool),
+        string_keys_to_dict('APPEND DBSIZE HLEN',
+                            int),
+        string_keys_to_dict('FLUSHALL FLUSHDB SET',
+                            lambda r: r == 'OK'),
+        string_keys_to_dict('HGETALL',
+                            lambda pairs: dict(zip(pairs[::2], pairs[1::2]))),
+        string_keys_to_dict('GET SUBSTR',
+                            str),
+        string_keys_to_dict('HGET',
+                            lambda r: r or ''),
+        )
+
 
     def __init__(self, host='localhost', port=6379, io_loop=None):
         self.connection = Connection(host, port, io_loop=io_loop)
