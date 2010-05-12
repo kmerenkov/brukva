@@ -8,23 +8,24 @@ from collections import namedtuple
 from rutabaga.exceptions import RedisError, ConnectionError, ResponseError, InvalidResponse
 
 
-NOOP_CB = lambda _: None
+NOOP_CB = lambda _result, _error: None
 
 Task = namedtuple('Task', 'command callback args kwargs')
 
 
 class Connection(object):
-    def __init__(self, host, port, timeout=None):
+    def __init__(self, host, port, timeout=None, io_loop=None):
         self.host = host
         self.port = port
         self.timeout = timeout
         self._stream = None
+        self._io_loop = io_loop
 
     def connect(self):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
             sock.connect((self.host, self.port))
-            self._stream = IOStream(sock)
+            self._stream = IOStream(sock, io_loop=self._io_loop)
         except socket.error, e:
             raise ConnectionError(str(e))
 
@@ -50,19 +51,24 @@ class Connection(object):
 
 class Client(object):
     REPLY_MAP = {'SET': lambda x: x == 'OK',
+                 'FLUSHDB': lambda x: x == 'OK',
                  'HGETALL': lambda pairs: dict(zip(pairs[::2], pairs[1::2])),
                  'GET': str,
                  'DEL': bool,
                  'HMSET': bool,
                  'APPEND': int,
+                 'DBSIZE': int, 
                  'SUBSTR': str,
                  }
 
-    def __init__(self, host, port):
-        self.connection = Connection(host, port)
+    def __init__(self, host='localhost', port=6379, io_loop=None):
+        self.connection = Connection(host, port, io_loop=io_loop)
         self.queue = []
         self.in_progress = False
         self.current_task = None
+
+    def __repr__(self):
+        return 'Rutabaga client (host=%s, port=%s)' % (self.connection.host, self.connection.port)
 
     def encode(self, value):
         if isinstance(value, str):
@@ -156,8 +162,14 @@ class Client(object):
         self.try_to_loop()
 
 
-    ### BASIC KEY COMMANDS
+    ### MAINTENANCE
+    def flushdb(self, callback=NOOP_CB):
+        self.execute_command('FLUSHDB', callback)
 
+    def dbsize(self, callback=NOOP_CB):
+        self.execute_command('DBSIZE', callback)
+
+    ### BASIC KEY COMMANDS
     def append(self, key, value, callback=NOOP_CB):
         self.execute_command('APPEND', callback, key, value)
 
