@@ -56,9 +56,13 @@ class Client(object):
                  'GET': str,
                  'DEL': bool,
                  'HMSET': bool,
+                 'HSET': bool,
+                 'HDEL': bool,
+                 'HGET': lambda x: x or '',
                  'APPEND': int,
                  'DBSIZE': int, 
                  'SUBSTR': str,
+                 'HLEN': int,
                  }
 
     def __init__(self, host='localhost', port=6379, io_loop=None):
@@ -195,21 +199,16 @@ class Client(object):
         [ items.extend(pair) for pair in mapping.iteritems() ]
         return self.execute_command('HMSET', callback, key, *items)
 
-if __name__ == '__main__':
-    def on_result(command, result, error):
-        if result:
-            print 'Result (%s): [%s] %s' % (command, type(result).__name__, result)
-        elif error:
-            print 'Error (%s): %s' % (command, error)
-    c = Client('localhost', 6379)
-    c.connection.connect()
-    c.delete('foo', partial(on_result, 'del'))
-    c.hmset('foo', {'a': 1, 'b': 2}, partial(on_result, 'hmset'))
-    c.hgetall('foo', partial(on_result, 'hgetall'))
-    c.set('foo2', 'bar', partial(on_result, 'set'))
-    c.get('foo2', partial(on_result, 'get'))
-    c.set('foo', 'bar', partial(on_result, 'set'))
-    c.append('foo', 'zar', partial(on_result, 'append'))
-    c.hgetall('foo', partial(on_result, 'hgetall'))
-    c.substr('foo', 2, 4, partial(on_result, 'foo'))
-    IOLoop.instance().start()
+    def hset(self, key, hkey, value, callback=NOOP_CB):
+        return self.execute_command('HSET', callback, key, hkey, value)
+
+    def hget(self, key, hkey, callback=NOOP_CB):
+        return self.execute_command('HGET', callback, key, hkey)
+
+    def hdel(self, key, hkey, callback=NOOP_CB):
+        return self.execute_command('HDEL', callback, key, hkey)
+
+    def hlen(self, key, callback=NOOP_CB):
+        return self.execute_command('HLEN', callback, key)
+
+
