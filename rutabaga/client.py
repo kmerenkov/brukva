@@ -74,7 +74,7 @@ class Client(object):
                             bool),
         string_keys_to_dict('APPEND DBSIZE HLEN',
                             int),
-        string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET',
+        string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SHUTDOWN',
                             lambda r: r == 'OK'),
         string_keys_to_dict('HGETALL',
                             lambda pairs: dict(zip(pairs[::2], pairs[1::2]))),
@@ -205,20 +205,23 @@ class Client(object):
 
 
     ### MAINTENANCE
+    def dbsize(self, *callbacks):
+        self.execute_command('DBSIZE', callbacks)
+
     def flushall(self, *callbacks):
         self.execute_command('FLUSHALL', callbacks)
 
     def flushdb(self, *callbacks):
         self.execute_command('FLUSHDB', callbacks)
 
-    def dbsize(self, *callbacks):
-        self.execute_command('DBSIZE', callbacks)
+    def ping(self, *callbacks):
+        self.execute_command('PING', callbacks)
 
     def select(self, db, *callbacks):
         self.execute_command('SELECT', callbacks, db)
 
-    def ping(self, *callbacks):
-        self.execute_command('PING', callbacks)
+    def shutdown(self, *callbacks):
+        self.execute_command('SHUTDOWN', callbacks)
 
     ### BASIC KEY COMMANDS
     def append(self, key, value, *callbacks):
