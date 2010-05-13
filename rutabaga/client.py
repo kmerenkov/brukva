@@ -18,6 +18,9 @@ class Task(object):
         self.command_kwargs = command_kwargs
         self.callbacks = callbacks
 
+    def __repr__(self):
+        return 'Task (command=%s, command_args=%s, command_kwargs=%s, %d callbacks)' % (self.command, self.command_args, self.command_kwargs, len(self.callbacks))
+
 
 def string_keys_to_dict(key_string, callback):
     return dict([(key, callback) for key in key_string.split()])
