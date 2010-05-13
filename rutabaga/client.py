@@ -282,6 +282,6 @@ class Client(object):
 
     def on_message(self, _data, _error):
         if self.subscribed:
-            self.listen(*self.current_task.callbacks)
-
+            self.schedule('LISTEN', self.current_task.callbacks)
+            self.try_to_loop()
 
