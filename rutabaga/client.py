@@ -231,6 +231,18 @@ class Client(object):
     def get(self, key, *callbacks):
         self.execute_command('GET', callbacks, key)
 
+    def incr(self, key, *callbacks):
+        self.execute_command('INCR', callbacks, key)
+
+    def decr(self, key, *callbacks):
+        self.execute_command('DECR', callbacks, key)
+
+    def incrby(self, key, amount, *callbacks):
+        self.execute_command('INCRBY', callbacks, key, amount)
+
+    def decrby(self, key, amount, *callbacks):
+        self.execute_command('DECRBY', callbacks, key, amount)
+
     ### HASH COMMANDS
     def hgetall(self, key, *callbacks):
         self.execute_command('HGETALL', callbacks, key)

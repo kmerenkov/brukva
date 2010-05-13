@@ -103,4 +103,28 @@ class ServerCommandsTestCase(TestIOLoop):
         self.start()
         self.assertEqual(steps, [1,2,3,4,5,6,7])
 
+    def test_incrdecr(self):
+        steps = []
+        def on_result(step, result, error):
+            steps.append(step)
+            if error:
+                raise error
+            if step == 1:
+                self.assertEqual(result, 1)
+            elif step == 2:
+                self.assertEqual(result, 11)
+            elif step == 3:
+                self.assertEqual(result, 10)
+            elif step == 4:
+                self.assertEqual(result, 0)
+            elif step == 5:
+                self.assertEqual(result, -1)
+                self.finish()
+        self.client.incr('foo', partial(on_result, 1))
+        self.client.incrby('foo', 10, partial(on_result, 2))
+        self.client.decr('foo', partial(on_result, 3))
+        self.client.decrby('foo', 10, partial(on_result, 4))
+        self.client.decr('foo', partial(on_result, 5))
+        self.start()
+        self.assertEqual(steps, [1,2,3,4,5])
 
