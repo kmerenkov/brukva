@@ -165,7 +165,7 @@ class Client(object):
             self.call_callbacks(callbacks, None, ConnectionError("Socket closed on remote end"))
             return
         if data in ('$-1', '*-1'):
-            callback(None, None)
+            self.call_callbacks(callbacks, None, None)
             return
         head, tail = data[0], data[1:]
         if head == '-':
