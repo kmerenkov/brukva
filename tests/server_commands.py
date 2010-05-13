@@ -52,10 +52,10 @@ class ServerCommandsTestCase(TestIOLoop):
             elif step == 2:
                 self.assertEqual(result, 'bar')
                 self.finish()
-            self.client.set('foo', 'bar', partial(on_result, 1))
-            self.client.get('foo', partial(on_result, 2))
-            self.start()
-            self.assertEqual(steps, [1,2])
+        self.client.set('foo', 'bar', partial(on_result, 1))
+        self.client.get('foo', partial(on_result, 2))
+        self.start()
+        self.assertEqual(steps, [1,2])
 
     def test_dbinfo(self):
         steps = []
