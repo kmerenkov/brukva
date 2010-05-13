@@ -9,7 +9,7 @@ Usage
 
     >>> import rutabaga
     >>> c = rutabaga.Client()
-    >>> c.connection.connect()
+    >>> c.connect()
     >>> def on_result(data, error):
            print data or error
     >>> c.set('foo', 'bar', on_result)
