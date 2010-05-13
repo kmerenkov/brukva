@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/> 
+        <title>{{ title }}</title>
+        <script>
+            var ws = new WebSocket("ws://127.0.0.1:8888/track");
+            ws.onopen = function() {
+                document.write("<b>Connected...</b>");
+            }
+            ws.onmessage = function(event) {
+                document.write("<p>" + event.data + "</p>");
+            }
+            ws.onclose = function() {
+                document.write("<b>Closed.</b>");
+            }
+        </script>
+    </head>
+    <body>
+        
+    </body>
+</html>
