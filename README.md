@@ -1,7 +1,7 @@
 rutabaga
 ========
 
-Asynchronous [Redis](http://redis-db.com/) client that works withing [Tornado](http://tornadoweb.org/) IO loop.
+Asynchronous [Redis](http://redis-db.com/) client that works within [Tornado](http://tornadoweb.org/) IO loop.
 
 
 Usage
