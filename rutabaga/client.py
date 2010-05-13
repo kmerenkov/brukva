@@ -119,11 +119,12 @@ class Client(object):
             cmds.append('$%s\r\n%s\r\n' % (len(e_t), e_t))
         return '*%s\r\n%s' % (len(tokens), ''.join(cmds))
 
-    def propogate_result(self, data, error):
+    def propogate_result(self, result):
+        (error, data) = result
         if error:
-            self.call_callbacks(self.current_task.callbacks, None, error)
+            self.call_callbacks(self.current_task.callbacks, (error, None))
         else:
-            self.call_callbacks(self.current_task.callbacks, self.format_reply(self.current_task.command, data), None)
+            self.call_callbacks(self.current_task.callbacks, (None, self.format_reply(self.current_task.command, data)))
         self.in_progress = False
         self.try_to_loop()
 
@@ -149,13 +150,14 @@ class Client(object):
 
     def do_multibulk(self, length):
         tokens = []
-        def on_data(data, error):
+        def on_data(result):
+            (error, data) = result
             if error:
-                self.propogate_result(None, error)
+                self.propogate_result((error, None))
                 return
             tokens.append(data)
         [ self._process_response([on_data]) for i in xrange(length) ]
-        self.propogate_result(tokens, None)
+        self.propogate_result((None, tokens))
 
     @adisp.process
     def _process_response(self, callbacks=None):
@@ -164,35 +166,35 @@ class Client(object):
         #print 'd:', data
         if not data:
             self.connection.disconnect()
-            self.call_callbacks(callbacks, None, ConnectionError("Socket closed on remote end"))
+            self.call_callbacks(callbacks, (ConnectionError("Socket closed on remote end"), None))
             return
         if data in ('$-1', '*-1'):
-            self.call_callbacks(callbacks, None, None)
+            self.call_callbacks(callbacks, (None, None))
             return
         head, tail = data[0], data[1:]
         if head == '-':
             if tail.startswith('ERR '):
                 tail = tail[4:]
-            self.call_callbacks(callbacks, None, ResponseError(self.current_task, tail))
+            self.call_callbacks(callbacks, (ResponseError(self.current_task, tail), None))
         elif head == '+':
-            self.call_callbacks(callbacks, tail, None)
+            self.call_callbacks(callbacks, (None, tail))
         elif head == ':':
-            self.call_callbacks(callbacks, int(tail), None)
+            self.call_callbacks(callbacks, (None, int(tail)))
         elif head == '$':
             length = int(tail)
             if length == -1:
-                callback(None)
+                self.call_callbacks(callbacks, (None, None))
             data = yield adisp.async(self.connection.read)(length+2)
             data = data[:-2] # strip \r\n
-            self.call_callbacks(callbacks, data, None)
+            self.call_callbacks(callbacks, (None, data))
         elif head == '*':
             length = int(tail)
             if length == -1:
-                self.call_callbacks(callbacks, None, None)
+                self.call_callbacks(callbacks, (None, None))
             else:
                 self.do_multibulk(length)
         else:
-            self.call_callbacks(callbacks, None, InvalidResponse("Unknown response type for: %s" % self.current_task.command))
+            self.call_callbacks(callbacks, (InvalidResponse("Unknown response type for: %s" % self.current_task.command), None))
 
     def execute_command(self, cmd, callbacks, *args, **kwargs):
         if callbacks is None:
@@ -325,7 +327,8 @@ class Client(object):
         callbacks = list(callbacks) + [self.on_subscribed]
         self.execute_command('SUBSCRIBE', callbacks, *channels)
 
-    def on_subscribed(self, _r, e):
+    def on_subscribed(self, result):
+        (e, _) = result
         if not e:
             self.subscribed = True
 
@@ -336,7 +339,8 @@ class Client(object):
         callbacks = list(callbacks) + [self.on_unsubscribed]
         self.execute_command('UNSUBSCRIBE', callbacks, *channels)
 
-    def on_unsubscribed(self, _r, e):
+    def on_unsubscribed(self, result):
+        (e, _) = result
         if not e:
             self.subscribed = False
 
@@ -353,7 +357,7 @@ class Client(object):
         self.schedule('LISTEN', callbacks)
         self.try_to_loop()
 
-    def on_message(self, _data, _error):
+    def on_message(self, _result):
         if self.subscribed:
             self.schedule('LISTEN', self.current_task.callbacks)
             self.try_to_loop()

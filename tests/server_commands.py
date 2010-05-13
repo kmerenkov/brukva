@@ -37,20 +37,22 @@ class TestIOLoop(unittest.TestCase):
 
 class ServerCommandsTestCase(TestIOLoop):
     def test_set(self):
-        def on_result(result, error):
-            self.assertEqual(result, True)
+        def on_result(result):
+            (_, data) = result
+            self.assertEqual(data, True)
             self.finish()
         self.client.set('foo', 'bar', on_result)
         self.start()
 
     def test_get(self):
         steps = []
-        def on_result(step, result, error):
+        def on_result(step, result):
+            (_, data) = result
             steps.append(step)
             if step == 1:
-                self.assertEqual(result, True)
+                self.assertEqual(data, True)
             elif step == 2:
-                self.assertEqual(result, 'bar')
+                self.assertEqual(data, 'bar')
                 self.finish()
         self.client.set('foo', 'bar', partial(on_result, 1))
         self.client.get('foo', partial(on_result, 2))
@@ -59,12 +61,13 @@ class ServerCommandsTestCase(TestIOLoop):
 
     def test_dbinfo(self):
         steps = []
-        def on_result(step, result, error):
+        def on_result(step, result):
+            (_, data) = result
             steps.append(step)
             if step == 1:
-                self.assertEqual(result, True)
+                self.assertEqual(data, True)
             elif step == 2:
-                self.assertEqual(result, 2)
+                self.assertEqual(data, 2)
                 self.finish()
             self.client.set('a', 1, partial(on_result, 1))
             self.client.set('b', 2, partial(on_result, 1))
@@ -74,24 +77,25 @@ class ServerCommandsTestCase(TestIOLoop):
 
     def test_hash(self):
         steps = []
-        def on_result(step, result, error):
+        def on_result(step, result):
+            (error, data) = result
             steps.append(step)
             if error:
                 raise error
             if step == 1:
-                self.assertEqual(result, True)
+                self.assertEqual(data, True)
             elif step == 2:
-                self.assertEqual(result, {'a': '1', 'b': '2'})
+                self.assertEqual(data, {'a': '1', 'b': '2'})
             elif step == 3:
-                self.assertEqual(result, True)
+                self.assertEqual(data, True)
             elif step == 4:
-                self.assertEqual(result, {'b': '2'})
+                self.assertEqual(data, {'b': '2'})
             elif step == 5:
-                self.assertEqual(result, '')
+                self.assertEqual(data, '')
             elif step == 6:
-                self.assertEqual(result, '2')
+                self.assertEqual(data, '2')
             elif step == 7:
-                self.assertEqual(result, 1)
+                self.assertEqual(data, 1)
                 self.finish()
         self.client.hmset('foo', {'a': 1, 'b': 2}, partial(on_result, 1))
         self.client.hgetall('foo', partial(on_result, 2))
@@ -105,20 +109,21 @@ class ServerCommandsTestCase(TestIOLoop):
 
     def test_incrdecr(self):
         steps = []
-        def on_result(step, result, error):
+        def on_result(step, result):
+            (error, data) = result
             steps.append(step)
             if error:
                 raise error
             if step == 1:
-                self.assertEqual(result, 1)
+                self.assertEqual(data, 1)
             elif step == 2:
-                self.assertEqual(result, 11)
+                self.assertEqual(data, 11)
             elif step == 3:
-                self.assertEqual(result, 10)
+                self.assertEqual(data, 10)
             elif step == 4:
-                self.assertEqual(result, 0)
+                self.assertEqual(data, 0)
             elif step == 5:
-                self.assertEqual(result, -1)
+                self.assertEqual(data, -1)
                 self.finish()
         self.client.incr('foo', partial(on_result, 1))
         self.client.incrby('foo', 10, partial(on_result, 2))
@@ -130,9 +135,10 @@ class ServerCommandsTestCase(TestIOLoop):
 
     def test_ping(self):
         steps = []
-        def on_result(result, error):
+        def on_result(result):
+            (_, data) = result
             steps.append(1)
-            self.assertEqual(result, True)
+            self.assertEqual(data, True)
             self.finish()
         self.client.ping(on_result)
         self.start()
@@ -140,18 +146,19 @@ class ServerCommandsTestCase(TestIOLoop):
 
     def test_lists(self):
         steps = []
-        def on_result(step, result, error):
+        def on_result(step, result):
+            (_, data) = result
             steps.append(step)
             if step == 1:
-                self.assertEqual(result, True)
+                self.assertEqual(data, True)
             elif step == 2:
-                self.assertEqual(result, 1)
+                self.assertEqual(data, 1)
             elif step == 3:
-                self.assertEqual(result, ['1'])
+                self.assertEqual(data, ['1'])
             elif step == 4:
-                self.assertEqual(result, '1')
+                self.assertEqual(data, '1')
             elif step == 5:
-                self.assertEqual(result, 0)
+                self.assertEqual(data, 0)
                 self.finish()
         self.client.lpush('foo', 1, partial(on_result, 1))
         self.client.llen('foo', partial(on_result, 2))
