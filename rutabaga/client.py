@@ -43,6 +43,7 @@ class Connection(object):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
             sock.connect((self.host, self.port))
+            sock.settimeout(self.timeout)
             self._stream = IOStream(sock, io_loop=self._io_loop)
         except socket.error, e:
             raise ConnectionError(str(e))
