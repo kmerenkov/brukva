@@ -239,6 +239,7 @@ class Client(object):
     def get(self, key, callbacks=None):
         self.execute_command('GET', callbacks, key)
 
+    ### COUNTERS COMMANDS
     def incr(self, key, callbacks=None):
         self.execute_command('INCR', callbacks, key)
 
@@ -250,6 +251,50 @@ class Client(object):
 
     def decrby(self, key, amount, callbacks=None):
         self.execute_command('DECRBY', callbacks, key, amount)
+
+    ### LIST COMMANDS
+    def blpop(self, keys, timeout=0, callbacks=None):
+        tokens = list(keys)
+        tokens.append(timeout)
+        self.execute_command('BLPOP', callbacks, *tokens)
+
+    def brpop(self, keys, timeout=0, callbacks=None):
+        tokens = list(keys)
+        tokens.append(timeout)
+        self.execute_command('BRPOP', callbacks, *tokens)
+
+    def lindex(self, key, index, callbacks=None):
+        self.execute_command('LINDEX', callbacks, key, index)
+
+    def llen(self, key, callbacks=None):
+        self.execute_command('LLEN', callbacks, key)
+
+    def lrange(self, key, start, end, callbacks=None):
+        self.execute_command('LRANGE', callbacks, key, start, end)
+
+    def lrem(self, key, value, num=0, callbacks=None):
+        self.execute_command('LREM', callbacks, key, num, value)
+
+    def lset(self, key, index, value, callbacks=None):
+        self.execute_command('LSET', callbacks, key, index, value)
+
+    def ltrim(self, key, start, end, callbacks=None):
+        self.execute_command('LTRIM', callbacks, key, start, end)
+
+    def lpush(self, key, value, callbacks=None):
+        self.execute_command('LPUSH', callbacks, key, value)
+
+    def rpush(self, key, value, callbacks=None):
+        self.execute_command('RPUSH', callbacks, key, value)
+
+    def lpop(self, key, callbacks=None):
+        self.execute_command('LPOP', callbacks, key)
+
+    def rpop(self, key, callbacks=None):
+        self.execute_command('RPOP', callbacks, key)
+
+    def rpoplpush(self, src, dst, callbacks=None):
+        self.execute_command('RPOPLPUSH', callbacks, src, dst)
 
     ### HASH COMMANDS
     def hgetall(self, key, callbacks=None):
