@@ -205,75 +205,76 @@ class Client(object):
 
 
     ### MAINTENANCE
-    def dbsize(self, *callbacks):
+    def dbsize(self, callbacks=None):
         self.execute_command('DBSIZE', callbacks)
 
-    def flushall(self, *callbacks):
+    def flushall(self, callbacks=None):
         self.execute_command('FLUSHALL', callbacks)
 
-    def flushdb(self, *callbacks):
+    def flushdb(self, callbacks=None):
         self.execute_command('FLUSHDB', callbacks)
 
-    def ping(self, *callbacks):
+    def ping(self, callbacks=None):
         self.execute_command('PING', callbacks)
 
-    def select(self, db, *callbacks):
+    def select(self, db, callbacks=None):
         self.execute_command('SELECT', callbacks, db)
 
-    def shutdown(self, *callbacks):
+    def shutdown(self, callbacks=None):
         self.execute_command('SHUTDOWN', callbacks)
 
     ### BASIC KEY COMMANDS
-    def append(self, key, value, *callbacks):
+    def append(self, key, value, callbacks=None):
         self.execute_command('APPEND', callbacks, key, value)
 
-    def substr(self, key, start, end, *callback):
+    def substr(self, key, start, end, callback=None):
         self.execute_command('SUBSTR', callbacks, key, start, end)
 
-    def delete(self, key, *callback):
+    def delete(self, key, callback=None):
         self.execute_command('DEL', callbacks, key)
 
-    def set(self, key, value, *callbacks):
+    def set(self, key, value, callbacks=None):
         self.execute_command('SET', callbacks, key, value)
 
-    def get(self, key, *callbacks):
+    def get(self, key, callbacks=None):
         self.execute_command('GET', callbacks, key)
 
-    def incr(self, key, *callbacks):
+    def incr(self, key, callbacks=None):
         self.execute_command('INCR', callbacks, key)
 
-    def decr(self, key, *callbacks):
+    def decr(self, key, callbacks=None):
         self.execute_command('DECR', callbacks, key)
 
-    def incrby(self, key, amount, *callbacks):
+    def incrby(self, key, amount, callbacks=None):
         self.execute_command('INCRBY', callbacks, key, amount)
 
-    def decrby(self, key, amount, *callbacks):
+    def decrby(self, key, amount, callbacks=None):
         self.execute_command('DECRBY', callbacks, key, amount)
 
     ### HASH COMMANDS
-    def hgetall(self, key, *callbacks):
+    def hgetall(self, key, callbacks=None):
         self.execute_command('HGETALL', callbacks, key)
 
-    def hmset(self, key, mapping, *callbacks):
+    def hmset(self, key, mapping, callbacks=None):
         items = []
         [ items.extend(pair) for pair in mapping.iteritems() ]
         self.execute_command('HMSET', callbacks, key, *items)
 
-    def hset(self, key, hkey, value, *callbacks):
+    def hset(self, key, hkey, value, callbacks=None):
         self.execute_command('HSET', callbacks, key, hkey, value)
 
-    def hget(self, key, hkey, *callbacks):
+    def hget(self, key, hkey, callbacks=None):
         self.execute_command('HGET', callbacks, key, hkey)
 
-    def hdel(self, key, hkey, *callbacks):
+    def hdel(self, key, hkey, callbacks=None):
         self.execute_command('HDEL', callbacks, key, hkey)
 
-    def hlen(self, key, *callbacks):
+    def hlen(self, key, callbacks=None):
         self.execute_command('HLEN', callbacks, key)
 
     ### PUBSUB
-    def subscribe(self, channels, *callbacks):
+    def subscribe(self, channels, callbacks=None):
+        callbacks = callbacks or []
         if isinstance(channels, basestring):
             channels = [channels]
         callbacks = list(callbacks) + [self.on_subscribed]
@@ -283,7 +284,8 @@ class Client(object):
         if not e:
             self.subscribed = True
 
-    def unsubscribe(self, channels, *callbacks):
+    def unsubscribe(self, channels, callbacks=None):
+        callbacks = callbacks or []
         if isinstance(channels, basestring):
             channels = [channels]
         callbacks = list(callbacks) + [self.on_unsubscribed]
@@ -293,11 +295,12 @@ class Client(object):
         if not e:
             self.subscribed = False
 
-    def publish(self, channel, message, *callbacks):
+    def publish(self, channel, message, callbacks=None):
         self.execute_command('PUBLISH', callbacks, channel, message)
 
-    def listen(self, *callbacks):
+    def listen(self, callbacks=None):
         # 'LISTEN' is just for exception information, it is not actually sent anywhere
+        callbacks = callbacks or []
         if self.on_message not in callbacks:
             callbacks = list(callbacks) + [self.on_message]
         self.schedule('LISTEN', callbacks)
