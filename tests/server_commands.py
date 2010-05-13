@@ -55,7 +55,7 @@ class ServerCommandsTestCase(TestIOLoop):
         self.client.set('foo', 'bar', partial(on_result, 1))
         self.client.get('foo', partial(on_result, 2))
         self.start()
-        self.assertEqual(steps, [1,2])
+        self.assertEqual(steps, [1, 2])
 
     def test_dbinfo(self):
         steps = []
@@ -70,7 +70,7 @@ class ServerCommandsTestCase(TestIOLoop):
             self.client.set('b', 2, partial(on_result, 1))
             self.client.dbsize(partial(on_result, 2))
             self.start()
-            self.assertEqual(steps, [1,2])
+            self.assertEqual(steps, [1, 2])
 
     def test_hash(self):
         steps = []
@@ -101,7 +101,7 @@ class ServerCommandsTestCase(TestIOLoop):
         self.client.hget('foo', 'b', partial(on_result, 6))
         self.client.hlen('foo', partial(on_result, 7))
         self.start()
-        self.assertEqual(steps, [1,2,3,4,5,6,7])
+        self.assertEqual(steps, [1, 2, 3, 4, 5, 6, 7])
 
     def test_incrdecr(self):
         steps = []
@@ -126,7 +126,7 @@ class ServerCommandsTestCase(TestIOLoop):
         self.client.decrby('foo', 10, partial(on_result, 4))
         self.client.decr('foo', partial(on_result, 5))
         self.start()
-        self.assertEqual(steps, [1,2,3,4,5])
+        self.assertEqual(steps, [1, 2, 3, 4, 5])
 
     def test_ping(self):
         steps = []
