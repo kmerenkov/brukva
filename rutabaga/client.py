@@ -8,9 +8,15 @@ from collections import namedtuple
 from rutabaga.exceptions import RedisError, ConnectionError, ResponseError, InvalidResponse
 
 
-NOOP_CB = lambda _result, _error: None
+Message = namedtuple('Message', 'kind channel body')
 
-Task = namedtuple('Task', 'command callback args kwargs')
+
+class Task(object):
+    def __init__(self, command, callbacks, command_args, command_kwargs):
+        self.command = command
+        self.command_args = command_args
+        self.command_kwargs = command_kwargs
+        self.callbacks = callbacks
 
 
 def string_keys_to_dict(key_string, callback):
@@ -72,6 +78,8 @@ class Client(object):
                             str),
         string_keys_to_dict('HGET',
                             lambda r: r or ''),
+        string_keys_to_dict('SUBSCRIBE UNSUBSCRIBE LISTEN',
+                            lambda r: Message(*r)),
         )
 
 
@@ -80,9 +88,16 @@ class Client(object):
         self.queue = []
         self.in_progress = False
         self.current_task = None
+        self.subscribed = False
 
     def __repr__(self):
         return 'Rutabaga client (host=%s, port=%s)' % (self.connection.host, self.connection.port)
+
+    def connect(self):
+        self.connection.connect()
+
+    def disconnect(self):
+        self.connection.disconnect()
 
     def encode(self, value):
         if isinstance(value, str):
@@ -101,11 +116,15 @@ class Client(object):
 
     def propogate_result(self, data, error):
         if error:
-            self.current_task.callback(None, error)
+            self.call_callbacks(self.current_task.callbacks, None, error)
         else:
-            self.current_task.callback(self.format_reply(self.current_task.command, data), None)
+            self.call_callbacks(self.current_task.callbacks, self.format_reply(self.current_task.command, data), None)
         self.in_progress = False
         self.try_to_loop()
+
+    def call_callbacks(self, callbacks, *args, **kwargs):
+        for cb in callbacks:
+            cb(*args, **kwargs)
 
     def format_reply(self, command, data):
         if command not in Client.REPLY_MAP:
@@ -120,8 +139,8 @@ class Client(object):
         elif not self.queue:
             self.current_task = None
 
-    def schedule(self, command, callback, *args, **kwargs):
-        self.queue.append(Task(command, callback, args, kwargs))
+    def schedule(self, command, callbacks, *args, **kwargs):
+        self.queue.append(Task(command, callbacks, args, kwargs))
 
     def do_multibulk(self, length):
         tokens = []
@@ -130,17 +149,17 @@ class Client(object):
                 self.propogate_result(None, error)
                 return
             tokens.append(data)
-        [ self._process_response(on_data) for i in xrange(length) ]
+        [ self._process_response([on_data]) for i in xrange(length) ]
         self.propogate_result(tokens, None)
 
     @adisp.process
-    def _process_response(self, callback=None):
-        callback = callback or self.propogate_result
+    def _process_response(self, callbacks=None):
+        callbacks = callbacks or [self.propogate_result]
         data = yield adisp.async(self.connection.readline)()
         #print 'd:', data
         if not data:
             self.connection.disconnect()
-            callback(None, ConnectionError("Socket closed on remote end"))
+            self.call_callbacks(callbacks, None, ConnectionError("Socket closed on remote end"))
             return
         if data in ('$-1', '*-1'):
             callback(None, None)
@@ -149,82 +168,120 @@ class Client(object):
         if head == '-':
             if tail.startswith('ERR '):
                 tail = tail[4:]
-            callback(None, ResponseError(self.current_task, tail))
+            self.call_callbacks(callbacks, None, ResponseError(self.current_task, tail))
         elif head == '+':
-            callback(tail, None)
+            self.call_callbacks(callbacks, tail, None)
         elif head == ':':
-            callback(int(tail), None)
+            self.call_callbacks(callbacks, int(tail), None)
         elif head == '$':
             length = int(tail)
             if length == -1:
                 callback(None)
             data = yield adisp.async(self.connection.read)(length+2)
             data = data[:-2] # strip \r\n
-            callback(data, None)
+            self.call_callbacks(callbacks, data, None)
         elif head == '*':
             length = int(tail)
             if length == -1:
-                callback(None, None)
+                self.call_callbacks(callbacks, None, None)
             else:
                 self.do_multibulk(length)
         else:
-            callback(None, InvalidResponse("Unknown response type for: %s" % self.curr_command))
+            self.call_callbacks(callbacks, None, InvalidResponse("Unknown response type for: %s" % self.current_task.command))
 
-    def execute_command(self, cmd, callback, *args, **kwargs):
+    def execute_command(self, cmd, callbacks, *args, **kwargs):
+        if callbacks is None:
+            callbacks = []
+        elif not hasattr(callbacks, '__iter__'):
+            callbacks = [callbacks]
         self.connection.write(self.format(cmd, *args, **kwargs))
-        self.schedule(cmd, callback, *args, **kwargs)
+        self.schedule(cmd, callbacks, *args, **kwargs)
         self.try_to_loop()
 
 
     ### MAINTENANCE
-    def flushall(self, callback=NOOP_CB):
-        self.execute_command('FLUSHALL', callback)
+    def flushall(self, *callbacks):
+        self.execute_command('FLUSHALL', callbacks)
 
-    def flushdb(self, callback=NOOP_CB):
-        self.execute_command('FLUSHDB', callback)
+    def flushdb(self, *callbacks):
+        self.execute_command('FLUSHDB', callbacks)
 
-    def dbsize(self, callback=NOOP_CB):
-        self.execute_command('DBSIZE', callback)
+    def dbsize(self, *callbacks):
+        self.execute_command('DBSIZE', callbacks)
 
-    def select(self, db, callback=NOOP_CB):
-        self.execute_command('SELECT', callback, db)
+    def select(self, db, *callbacks):
+        self.execute_command('SELECT', callbacks, db)
 
     ### BASIC KEY COMMANDS
-    def append(self, key, value, callback=NOOP_CB):
-        self.execute_command('APPEND', callback, key, value)
+    def append(self, key, value, *callbacks):
+        self.execute_command('APPEND', callbacks, key, value)
 
-    def substr(self, key, start, end, callback=NOOP_CB):
-        self.execute_command('SUBSTR', callback, key, start, end)
+    def substr(self, key, start, end, *callback):
+        self.execute_command('SUBSTR', callbacks, key, start, end)
 
-    def delete(self, key, callback=NOOP_CB):
-        self.execute_command('DEL', callback, key)
+    def delete(self, key, *callback):
+        self.execute_command('DEL', callbacks, key)
 
-    def set(self, key, value, callback=NOOP_CB):
-        self.execute_command('SET', callback, key, value)
+    def set(self, key, value, *callbacks):
+        self.execute_command('SET', callbacks, key, value)
 
-    def get(self, key, callback=NOOP_CB):
-        self.execute_command('GET', callback, key)
+    def get(self, key, *callbacks):
+        self.execute_command('GET', callbacks, key)
 
     ### HASH COMMANDS
+    def hgetall(self, key, *callbacks):
+        self.execute_command('HGETALL', callbacks, key)
 
-    def hgetall(self, key, callback=NOOP_CB):
-        self.execute_command('HGETALL', callback, key)
-
-    def hmset(self, key, mapping, callback=NOOP_CB):
+    def hmset(self, key, mapping, *callbacks):
         items = []
         [ items.extend(pair) for pair in mapping.iteritems() ]
-        return self.execute_command('HMSET', callback, key, *items)
+        self.execute_command('HMSET', callbacks, key, *items)
 
-    def hset(self, key, hkey, value, callback=NOOP_CB):
-        return self.execute_command('HSET', callback, key, hkey, value)
+    def hset(self, key, hkey, value, *callbacks):
+        self.execute_command('HSET', callbacks, key, hkey, value)
 
-    def hget(self, key, hkey, callback=NOOP_CB):
-        return self.execute_command('HGET', callback, key, hkey)
+    def hget(self, key, hkey, *callbacks):
+        self.execute_command('HGET', callbacks, key, hkey)
 
-    def hdel(self, key, hkey, callback=NOOP_CB):
-        return self.execute_command('HDEL', callback, key, hkey)
+    def hdel(self, key, hkey, *callbacks):
+        self.execute_command('HDEL', callbacks, key, hkey)
 
-    def hlen(self, key, callback=NOOP_CB):
-        return self.execute_command('HLEN', callback, key)
+    def hlen(self, key, *callbacks):
+        self.execute_command('HLEN', callbacks, key)
+
+    ### PUBSUB
+    def subscribe(self, channels, *callbacks):
+        if isinstance(channels, basestring):
+            channels = [channels]
+        callbacks = list(callbacks) + [self.on_subscribed]
+        self.execute_command('SUBSCRIBE', callbacks, *channels)
+
+    def on_subscribed(self, _r, e):
+        if not e:
+            self.subscribed = True
+
+    def unsubscribe(self, channels, *callbacks):
+        if isinstance(channels, basestring):
+            channels = [channels]
+        callbacks = list(callbacks) + [self.on_unsubscribed]
+        self.execute_command('UNSUBSCRIBE', callbacks, *channels)
+
+    def on_unsubscribed(self, _r, e):
+        if not e:
+            self.subscribed = False
+
+    def publish(self, channel, message, *callbacks):
+        self.execute_command('PUBLISH', callbacks, channel, message)
+
+    def listen(self, *callbacks):
+        # 'LISTEN' is just for exception information, it is not actually sent anywhere
+        if self.on_message not in callbacks:
+            callbacks = list(callbacks) + [self.on_message]
+        self.schedule('LISTEN', callbacks)
+        self.try_to_loop()
+
+    def on_message(self, _data, _error):
+        if self.subscribed:
+            self.listen(*self.current_task.callbacks)
 
 
