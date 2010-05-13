@@ -108,7 +108,7 @@ class Client(object):
         if isinstance(value, str):
             return value
         elif isinstance(value, unicode):
-            return value.encode(self.encoding, 'utf-8')
+            return value.encode('utf-8')
         # pray and hope
         return str(value)
 
@@ -346,6 +346,8 @@ class Client(object):
     def listen(self, callbacks=None):
         # 'LISTEN' is just for exception information, it is not actually sent anywhere
         callbacks = callbacks or []
+        if not hasattr(callbacks, '__iter__'):
+            callbacks = [callbacks]
         if self.on_message not in callbacks:
             callbacks = list(callbacks) + [self.on_message]
         self.schedule('LISTEN', callbacks)
