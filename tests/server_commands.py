@@ -128,3 +128,13 @@ class ServerCommandsTestCase(TestIOLoop):
         self.start()
         self.assertEqual(steps, [1,2,3,4,5])
 
+    def test_ping(self):
+        steps = []
+        def on_result(result, error):
+            steps.append(1)
+            self.assertEqual(result, True)
+            self.finish()
+        self.client.ping(on_result)
+        self.start()
+        self.assertEqual(steps, [1])
+

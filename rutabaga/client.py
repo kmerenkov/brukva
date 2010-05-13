@@ -84,6 +84,7 @@ class Client(object):
                             lambda r: r or ''),
         string_keys_to_dict('SUBSCRIBE UNSUBSCRIBE LISTEN',
                             lambda r: Message(*r)),
+        {'PING': lambda r: r == 'PONG'},
         )
 
 
@@ -215,6 +216,9 @@ class Client(object):
 
     def select(self, db, *callbacks):
         self.execute_command('SELECT', callbacks, db)
+
+    def ping(self, *callbacks):
+        self.execute_command('PING', callbacks)
 
     ### BASIC KEY COMMANDS
     def append(self, key, value, *callbacks):
