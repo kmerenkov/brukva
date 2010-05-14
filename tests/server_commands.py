@@ -28,7 +28,16 @@ class TestIOLoop(unittest.TestCase):
     def tearDown(self):
         self.finish()
 
-    def finish(self):
+    def expect(self, expected):
+        def callback(result):
+            (_, data) = result
+            if callable(expected):
+                self.assertTrue(expected(data))
+            else:
+                self.assertEqual(expected, data)
+        return callback
+
+    def finish(self, *args):
         self.loop.stop()
 
     def start(self):
@@ -37,189 +46,75 @@ class TestIOLoop(unittest.TestCase):
 
 class ServerCommandsTestCase(TestIOLoop):
     def test_set(self):
-        def on_result(result):
-            (_, data) = result
-            self.assertEqual(data, True)
-            self.finish()
-        self.client.set('foo', 'bar', on_result)
+        self.client.set('foo', 'bar', [self.expect(True), self.finish])
         self.start()
 
     def test_get(self):
-        steps = []
-        def on_result(step, result):
-            (_, data) = result
-            steps.append(step)
-            if step == 1:
-                self.assertEqual(data, True)
-            elif step == 2:
-                self.assertEqual(data, 'bar')
-                self.finish()
-        self.client.set('foo', 'bar', p(on_result, 1))
-        self.client.get('foo', p(on_result, 2))
+        self.client.set('foo', 'bar', self.expect(True))
+        self.client.get('foo', [self.expect('bar'), self.finish])
         self.start()
-        self.assertEqual(steps, [1, 2])
 
     def test_dbinfo(self):
-        steps = []
-        def on_result(step, result):
-            (_, data) = result
-            steps.append(step)
-            if step == 1:
-                self.assertEqual(data, True)
-            elif step == 2:
-                self.assertEqual(data, 2)
-                self.finish()
-            self.client.set('a', 1, p(on_result, 1))
-            self.client.set('b', 2, p(on_result, 1))
-            self.client.dbsize(p(on_result, 2))
-            self.start()
-            self.assertEqual(steps, [1, 2])
+        self.client.set('a', 1, self.expect(True))
+        self.client.set('b', 2, self.expect(True))
+        self.client.dbsize([self.expect(2), self.finish])
+        self.start()
 
     def test_hash(self):
-        steps = []
-        def on_result(step, result):
-            (error, data) = result
-            steps.append(step)
-            if error:
-                raise error
-            if step == 1:
-                self.assertEqual(data, True)
-            elif step == 2:
-                self.assertEqual(data, {'a': '1', 'b': '2'})
-            elif step == 3:
-                self.assertEqual(data, True)
-            elif step == 4:
-                self.assertEqual(data, {'b': '2'})
-            elif step == 5:
-                self.assertEqual(data, '')
-            elif step == 6:
-                self.assertEqual(data, '2')
-            elif step == 7:
-                self.assertEqual(data, 1)
-                self.finish()
-        self.client.hmset('foo', {'a': 1, 'b': 2}, p(on_result, 1))
-        self.client.hgetall('foo', p(on_result, 2))
-        self.client.hdel('foo', 'a', p(on_result, 3))
-        self.client.hgetall('foo', p(on_result, 4))
-        self.client.hget('foo', 'a', p(on_result, 5))
-        self.client.hget('foo', 'b', p(on_result, 6))
-        self.client.hlen('foo', p(on_result, 7))
+        self.client.hmset('foo', {'a': 1, 'b': 2}, self.expect(True))
+        self.client.hgetall('foo', self.expect({'a': '1', 'b': '2'}))
+        self.client.hdel('foo', 'a', self.expect(True))
+        self.client.hgetall('foo', self.expect({'b': '2'}))
+        self.client.hget('foo', 'a', self.expect(''))
+        self.client.hget('foo', 'b', self.expect('2'))
+        self.client.hlen('foo', [self.expect(1), self.finish])
         self.start()
-        self.assertEqual(steps, [1, 2, 3, 4, 5, 6, 7])
 
     def test_incrdecr(self):
-        steps = []
-        def on_result(step, result):
-            (error, data) = result
-            steps.append(step)
-            if error:
-                raise error
-            if step == 1:
-                self.assertEqual(data, 1)
-            elif step == 2:
-                self.assertEqual(data, 11)
-            elif step == 3:
-                self.assertEqual(data, 10)
-            elif step == 4:
-                self.assertEqual(data, 0)
-            elif step == 5:
-                self.assertEqual(data, -1)
-                self.finish()
-        self.client.incr('foo', p(on_result, 1))
-        self.client.incrby('foo', 10, p(on_result, 2))
-        self.client.decr('foo', p(on_result, 3))
-        self.client.decrby('foo', 10, p(on_result, 4))
-        self.client.decr('foo', p(on_result, 5))
+        self.client.incr('foo', self.expect(1))
+        self.client.incrby('foo', 10, self.expect(11))
+        self.client.decr('foo', self.expect(10))
+        self.client.decrby('foo', 10, self.expect(0))
+        self.client.decr('foo', [self.expect(-1), self.finish])
         self.start()
-        self.assertEqual(steps, [1, 2, 3, 4, 5])
 
     def test_ping(self):
-        steps = []
-        def on_result(result):
-            (_, data) = result
-            steps.append(1)
-            self.assertEqual(data, True)
-            self.finish()
-        self.client.ping(on_result)
+        self.client.ping([self.expect(True), self.finish])
         self.start()
-        self.assertEqual(steps, [1])
 
     def test_lists(self):
-        steps = []
-        def on_result(step, result):
-            (_, data) = result
-            steps.append(step)
-            if step == 1:
-                self.assertEqual(data, True)
-            elif step == 2:
-                self.assertEqual(data, 1)
-            elif step == 3:
-                self.assertEqual(data, ['1'])
-            elif step == 4:
-                self.assertEqual(data, '1')
-            elif step == 5:
-                self.assertEqual(data, 0)
-                self.finish()
-        self.client.lpush('foo', 1, p(on_result, 1))
-        self.client.llen('foo', p(on_result, 2))
-        self.client.lrange('foo', 0, -1, p(on_result, 3))
-        self.client.rpop('foo', p(on_result, 4))
-        self.client.llen('foo', p(on_result, 5))
+        self.client.lpush('foo', 1, self.expect(True))
+        self.client.llen('foo', self.expect(1))
+        self.client.lrange('foo', 0, -1, self.expect(['1']))
+        self.client.rpop('foo', self.expect('1'))
+        self.client.llen('foo', [self.expect(0), self.finish])
         self.start()
-        self.assertEqual(steps, [1, 2, 3, 4, 5])
 
     def test_sets(self):
-        steps = []
-        def on_result(step, result):
-            (_, data) = result
-            steps.append(step)
-            if step == 1:
-                self.assertEqual(data, True)
-            elif step == 1.5:
-                self.assertTrue(data in ['a', 'b', 'c'])
-            elif step == 2:
-                self.assertEqual(data, 3)
-            elif step == 3:
-                self.assertEqual(data, True)
-            elif step == 4:
-                self.assertEqual(data, True)
-            elif step == 5:
-                self.assertEqual(data, set(['b']))
-            elif step == 6:
-                self.assertEqual(data, True)
-            elif step == 7:
-                self.assertEqual(data, 'c')
-                self.finish()
-        self.client.sadd('foo', 'a', p(on_result, 1))
-        self.client.sadd('foo', 'b', p(on_result, 1))
-        self.client.sadd('foo', 'c', p(on_result, 1))
-        self.client.srandmember('foo', p(on_result, 1.5))
-        self.client.scard('foo', p(on_result, 2))
-        self.client.srem('foo', 'a', p(on_result, 3))
-        self.client.smove('foo', 'bar', 'b', p(on_result, 4))
-        self.client.smembers('bar', p(on_result, 5))
-        self.client.sismember('foo', 'c', p(on_result, 6))
-        self.client.spop('foo', p(on_result, 7))
+        self.client.sadd('foo', 'a', self.expect(True))
+        self.client.sadd('foo', 'b', self.expect(True))
+        self.client.sadd('foo', 'c', self.expect(True))
+        self.client.srandmember('foo', self.expect(lambda x: x in ['a', 'b', 'c']))
+        self.client.scard('foo', self.expect(3))
+        self.client.srem('foo', 'a', self.expect(True))
+        self.client.smove('foo', 'bar', 'b', self.expect(True))
+        self.client.smembers('bar', self.expect(set(['b'])))
+        self.client.sismember('foo', 'c', self.expect(True))
+        self.client.spop('foo', [self.expect('c'), self.finish])
         self.start()
-        self.assertEqual(steps, [1, 1, 1, 1.5, 2, 3, 4, 5, 6, 7])
 
     def test_sets2(self):
-        def end(_):
-            self.finish()
-        def expect(expected, result):
-            (_, actual) = result
-            self.assertEqual(expected, actual)
-        self.client.sadd('foo', 'a', p(expect, True))
-        self.client.sadd('foo', 'b', p(expect, True))
-        self.client.sadd('foo', 'c', p(expect, True))
-        self.client.sadd('bar', 'b', p(expect, True))
-        self.client.sadd('bar', 'c', p(expect, True))
-        self.client.sadd('bar', 'd', p(expect, True))
+        self.client.sadd('foo', 'a', self.expect(True))
+        self.client.sadd('foo', 'b', self.expect(True))
+        self.client.sadd('foo', 'c', self.expect(True))
+        self.client.sadd('bar', 'b', self.expect(True))
+        self.client.sadd('bar', 'c', self.expect(True))
+        self.client.sadd('bar', 'd', self.expect(True))
 
-        self.client.sdiff(['foo', 'bar'], p(expect, set(['a'])))
-        self.client.sdiff(['bar', 'foo'], p(expect, set(['d'])))
-        self.client.sinter(['foo', 'bar'], p(expect, set(['b', 'c'])))
-        self.client.sunion(['foo', 'bar'], [p(expect, set(['a', 'b', 'c', 'd'])), end])
+        self.client.sdiff(['foo', 'bar'], self.expect(set(['a'])))
+        self.client.sdiff(['bar', 'foo'], self.expect(set(['d'])))
+        self.client.sinter(['foo', 'bar'], self.expect(set(['b', 'c'])))
+        self.client.sunion(['foo', 'bar'], [self.expect(set(['a', 'b', 'c', 'd'])), self.finish])
         self.start()
 
 
