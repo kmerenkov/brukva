@@ -76,6 +76,8 @@ class Client(object):
                             int),
         string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SHUTDOWN',
                             lambda r: r == 'OK'),
+        string_keys_to_dict('SMEMBERS',
+                            set),
         string_keys_to_dict('HGETALL',
                             lambda pairs: dict(zip(pairs[::2], pairs[1::2]))),
         string_keys_to_dict('GET SUBSTR',
@@ -297,6 +299,28 @@ class Client(object):
 
     def rpoplpush(self, src, dst, callbacks=None):
         self.execute_command('RPOPLPUSH', callbacks, src, dst)
+
+    ### SET COMMANDS
+    def sadd(self, key, value, callbacks=None):
+        self.execute_command('SADD', callbacks, key, value)
+
+    def srem(self, key, value, callbacks=None):
+        self.execute_command('SREM', callbacks, key, value)
+
+    def scard(self, key, callbacks=None):
+        self.execute_command('SCARD', callbacks, key)
+
+    def spop(self, key, callbacks=None):
+        self.execute_command('SPOP', callbacks, key)
+
+    def smove(self, src, dst, value, callbacks=None):
+        self.execute_command('SMOVE', callbacks, src, dst, value)
+
+    def sismember(self, key, value, callbacks=None):
+        self.execute_command('SISMEMBER', callbacks, key, value)
+
+    def smembers(self, key, callbacks=None):
+        self.execute_command('SMEMBERS', callbacks, key)
 
     ### HASH COMMANDS
     def hgetall(self, key, callbacks=None):

@@ -1,7 +1,7 @@
 import rutabaga
 import unittest
 from tornado.ioloop import IOLoop
-from functools import partial
+from functools import partial as p
 
 
 class CustomAssertionError(AssertionError):
@@ -54,8 +54,8 @@ class ServerCommandsTestCase(TestIOLoop):
             elif step == 2:
                 self.assertEqual(data, 'bar')
                 self.finish()
-        self.client.set('foo', 'bar', partial(on_result, 1))
-        self.client.get('foo', partial(on_result, 2))
+        self.client.set('foo', 'bar', p(on_result, 1))
+        self.client.get('foo', p(on_result, 2))
         self.start()
         self.assertEqual(steps, [1, 2])
 
@@ -69,9 +69,9 @@ class ServerCommandsTestCase(TestIOLoop):
             elif step == 2:
                 self.assertEqual(data, 2)
                 self.finish()
-            self.client.set('a', 1, partial(on_result, 1))
-            self.client.set('b', 2, partial(on_result, 1))
-            self.client.dbsize(partial(on_result, 2))
+            self.client.set('a', 1, p(on_result, 1))
+            self.client.set('b', 2, p(on_result, 1))
+            self.client.dbsize(p(on_result, 2))
             self.start()
             self.assertEqual(steps, [1, 2])
 
@@ -97,13 +97,13 @@ class ServerCommandsTestCase(TestIOLoop):
             elif step == 7:
                 self.assertEqual(data, 1)
                 self.finish()
-        self.client.hmset('foo', {'a': 1, 'b': 2}, partial(on_result, 1))
-        self.client.hgetall('foo', partial(on_result, 2))
-        self.client.hdel('foo', 'a', partial(on_result, 3))
-        self.client.hgetall('foo', partial(on_result, 4))
-        self.client.hget('foo', 'a', partial(on_result, 5))
-        self.client.hget('foo', 'b', partial(on_result, 6))
-        self.client.hlen('foo', partial(on_result, 7))
+        self.client.hmset('foo', {'a': 1, 'b': 2}, p(on_result, 1))
+        self.client.hgetall('foo', p(on_result, 2))
+        self.client.hdel('foo', 'a', p(on_result, 3))
+        self.client.hgetall('foo', p(on_result, 4))
+        self.client.hget('foo', 'a', p(on_result, 5))
+        self.client.hget('foo', 'b', p(on_result, 6))
+        self.client.hlen('foo', p(on_result, 7))
         self.start()
         self.assertEqual(steps, [1, 2, 3, 4, 5, 6, 7])
 
@@ -125,11 +125,11 @@ class ServerCommandsTestCase(TestIOLoop):
             elif step == 5:
                 self.assertEqual(data, -1)
                 self.finish()
-        self.client.incr('foo', partial(on_result, 1))
-        self.client.incrby('foo', 10, partial(on_result, 2))
-        self.client.decr('foo', partial(on_result, 3))
-        self.client.decrby('foo', 10, partial(on_result, 4))
-        self.client.decr('foo', partial(on_result, 5))
+        self.client.incr('foo', p(on_result, 1))
+        self.client.incrby('foo', 10, p(on_result, 2))
+        self.client.decr('foo', p(on_result, 3))
+        self.client.decrby('foo', 10, p(on_result, 4))
+        self.client.decr('foo', p(on_result, 5))
         self.start()
         self.assertEqual(steps, [1, 2, 3, 4, 5])
 
@@ -160,10 +160,43 @@ class ServerCommandsTestCase(TestIOLoop):
             elif step == 5:
                 self.assertEqual(data, 0)
                 self.finish()
-        self.client.lpush('foo', 1, partial(on_result, 1))
-        self.client.llen('foo', partial(on_result, 2))
-        self.client.lrange('foo', 0, -1, partial(on_result, 3))
-        self.client.rpop('foo', partial(on_result, 4))
-        self.client.llen('foo', partial(on_result, 5))
+        self.client.lpush('foo', 1, p(on_result, 1))
+        self.client.llen('foo', p(on_result, 2))
+        self.client.lrange('foo', 0, -1, p(on_result, 3))
+        self.client.rpop('foo', p(on_result, 4))
+        self.client.llen('foo', p(on_result, 5))
         self.start()
         self.assertEqual(steps, [1, 2, 3, 4, 5])
+
+    def test_sets(self):
+        steps = []
+        def on_result(step, result):
+            (_, data) = result
+            steps.append(step)
+            if step == 1:
+                self.assertEqual(data, True)
+            elif step == 2:
+                self.assertEqual(data, 3)
+            elif step == 3:
+                self.assertEqual(data, True)
+            elif step == 4:
+                self.assertEqual(data, True)
+            elif step == 5:
+                self.assertEqual(data, set(['b']))
+            elif step == 6:
+                self.assertEqual(data, True)
+            elif step == 7:
+                self.assertEqual(data, 'c')
+                self.finish()
+        self.client.sadd('foo', 'a', p(on_result, 1))
+        self.client.sadd('foo', 'b', p(on_result, 1))
+        self.client.sadd('foo', 'c', p(on_result, 1))
+        self.client.scard('foo', p(on_result, 2))
+        self.client.srem('foo', 'a', p(on_result, 3))
+        self.client.smove('foo', 'bar', 'b', p(on_result, 4))
+        self.client.smembers('bar', p(on_result, 5))
+        self.client.sismember('foo', 'c', p(on_result, 6))
+        self.client.spop('foo', p(on_result, 7))
+        self.start()
+        self.assertEqual(steps, [1, 1, 1, 2, 3, 4, 5, 6, 7])
+
