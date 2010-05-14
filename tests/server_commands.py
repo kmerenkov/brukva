@@ -175,6 +175,8 @@ class ServerCommandsTestCase(TestIOLoop):
             steps.append(step)
             if step == 1:
                 self.assertEqual(data, True)
+            elif step == 1.5:
+                self.assertTrue(data in ['a', 'b', 'c'])
             elif step == 2:
                 self.assertEqual(data, 3)
             elif step == 3:
@@ -191,6 +193,7 @@ class ServerCommandsTestCase(TestIOLoop):
         self.client.sadd('foo', 'a', p(on_result, 1))
         self.client.sadd('foo', 'b', p(on_result, 1))
         self.client.sadd('foo', 'c', p(on_result, 1))
+        self.client.srandmember('foo', p(on_result, 1.5))
         self.client.scard('foo', p(on_result, 2))
         self.client.srem('foo', 'a', p(on_result, 3))
         self.client.smove('foo', 'bar', 'b', p(on_result, 4))
@@ -198,5 +201,25 @@ class ServerCommandsTestCase(TestIOLoop):
         self.client.sismember('foo', 'c', p(on_result, 6))
         self.client.spop('foo', p(on_result, 7))
         self.start()
-        self.assertEqual(steps, [1, 1, 1, 2, 3, 4, 5, 6, 7])
+        self.assertEqual(steps, [1, 1, 1, 1.5, 2, 3, 4, 5, 6, 7])
+
+    def test_sets2(self):
+        def end(_):
+            self.finish()
+        def expect(expected, result):
+            (_, actual) = result
+            self.assertEqual(expected, actual)
+        self.client.sadd('foo', 'a', p(expect, True))
+        self.client.sadd('foo', 'b', p(expect, True))
+        self.client.sadd('foo', 'c', p(expect, True))
+        self.client.sadd('bar', 'b', p(expect, True))
+        self.client.sadd('bar', 'c', p(expect, True))
+        self.client.sadd('bar', 'd', p(expect, True))
+
+        self.client.sdiff(['foo', 'bar'], p(expect, set(['a'])))
+        self.client.sdiff(['bar', 'foo'], p(expect, set(['d'])))
+        self.client.sinter(['foo', 'bar'], p(expect, set(['b', 'c'])))
+        self.client.sunion(['foo', 'bar'], [p(expect, set(['a', 'b', 'c', 'd'])), end])
+        self.start()
+
 

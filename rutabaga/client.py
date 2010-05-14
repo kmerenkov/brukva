@@ -76,7 +76,7 @@ class Client(object):
                             int),
         string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SHUTDOWN',
                             lambda r: r == 'OK'),
-        string_keys_to_dict('SMEMBERS',
+        string_keys_to_dict('SMEMBERS SINTER SUNION SDIFF',
                             set),
         string_keys_to_dict('HGETALL',
                             lambda pairs: dict(zip(pairs[::2], pairs[1::2]))),
@@ -321,6 +321,18 @@ class Client(object):
 
     def smembers(self, key, callbacks=None):
         self.execute_command('SMEMBERS', callbacks, key)
+
+    def srandmember(self, key, callbacks=None):
+        self.execute_command('SRANDMEMBER', callbacks, key)
+
+    def sinter(self, keys, callbacks=None):
+        self.execute_command('SINTER', callbacks, *keys)
+
+    def sdiff(self, keys, callbacks=None):
+        self.execute_command('SDIFF', callbacks, *keys)
+
+    def sunion(self, keys, callbacks=None):
+        self.execute_command('SUNION', callbacks, *keys)
 
     ### HASH COMMANDS
     def hgetall(self, key, callbacks=None):
