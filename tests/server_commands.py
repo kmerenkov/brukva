@@ -149,3 +149,6 @@ class ServerCommandsTestCase(TestIOLoop):
         self.client.sunionstore(['foo', 'bar'], 'zar', self.expect(4))
         self.client.smembers('zar', [self.expect(set(['a', 'b', 'c', 'd'])), self.finish])
         self.start()
+
+if __name__ == '__main__':
+    unittest.main()
