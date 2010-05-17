@@ -173,13 +173,20 @@ class Client(object):
         read_more = partial(self._process_response, [on_data])
         self._io_loop.add_callback(read_more)
 
-    @adisp.process
     def _process_response(self, callbacks=None):
         callbacks = callbacks or [self.propogate_result]
-        data = yield adisp.async(self.connection.readline)()
+        self.connection.readline(partial(self._parse_command_response, callbacks))
+
+    def _parse_value_response(self, callbacks, data):
         if not data:
-            self.connection.disconnect()
-            self.call_callbacks(callbacks, (ConnectionError("Socket closed on remote end"), None))
+            self._sudden_disconnect()
+            return
+        data = data[:-2]
+        self.call_callbacks(callbacks, (None, data))
+
+    def _parse_command_response(self, callbacks, data):
+        if not data:
+            self._sudden_disconnect()
             return
         if data in ('$-1', '*-1'):
             self.call_callbacks(callbacks, (None, None))
@@ -197,9 +204,7 @@ class Client(object):
             length = int(tail)
             if length == -1:
                 self.call_callbacks(callbacks, (None, None))
-            data = yield adisp.async(self.connection.read)(length+2)
-            data = data[:-2] # strip \r\n
-            self.call_callbacks(callbacks, (None, data))
+            self.connection.read(length+2, partial(self._parse_value_response, callbacks))
         elif head == '*':
             length = int(tail)
             if length == -1:
