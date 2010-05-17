@@ -116,4 +116,22 @@ class ServerCommandsTestCase(TestIOLoop):
         self.client.sunion(['foo', 'bar'], [self.expect(set(['a', 'b', 'c', 'd'])), self.finish])
         self.start()
 
+    def test_sets3(self):
+        self.client.sadd('foo', 'a', self.expect(True))
+        self.client.sadd('foo', 'b', self.expect(True))
+        self.client.sadd('foo', 'c', self.expect(True))
+        self.client.sadd('bar', 'b', self.expect(True))
+        self.client.sadd('bar', 'c', self.expect(True))
+        self.client.sadd('bar', 'd', self.expect(True))
+
+        self.client.sdiffstore(['foo', 'bar'], 'zar', self.expect(True))
+        self.client.smembers('zar', self.expect(set(['a'])))
+        self.client.delete('zar', self.expect(True))
+
+        self.client.sinterstore(['foo', 'bar'], 'zar', self.expect(True))
+        self.client.smembers('zar', self.expect(set(['b', 'c'])))
+        self.client.delete('zar', self.expect(True))
+
+        self.client.sunionstore(['foo', 'bar'], 'zar', self.expect(True))
+        self.client.smembers('zar', [self.expect(set(['a', 'b', 'c', 'd'])), self.finish])
 

@@ -231,10 +231,10 @@ class Client(object):
     def append(self, key, value, callbacks=None):
         self.execute_command('APPEND', callbacks, key, value)
 
-    def substr(self, key, start, end, callback=None):
+    def substr(self, key, start, end, callbacks=None):
         self.execute_command('SUBSTR', callbacks, key, start, end)
 
-    def delete(self, key, callback=None):
+    def delete(self, key, callbacks=None):
         self.execute_command('DEL', callbacks, key)
 
     def set(self, key, value, callbacks=None):
@@ -333,6 +333,15 @@ class Client(object):
 
     def sunion(self, keys, callbacks=None):
         self.execute_command('SUNION', callbacks, *keys)
+
+    def sinterstore(self, keys, dst, callbacks=None):
+        self.execute_command('SINTERSTORE', dst, *keys)
+
+    def sunionstore(self, keys, dst, callbacks=None):
+        self.execute_command('SUNIONSTORE', dst, *keys)
+
+    def sdiffstore(self, keys, dst, callbacks=None):
+        self.execute_command('SDIFFSTORE', dst, *keys)
 
     ### HASH COMMANDS
     def hgetall(self, key, callbacks=None):
