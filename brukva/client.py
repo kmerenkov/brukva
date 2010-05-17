@@ -167,9 +167,6 @@ class Client(object):
                 self.propogate_result((None, tokens))
             else:
                 self._io_loop.add_callback(read_more)
-        if not length:
-            self.propogate_result((None, []))
-            return
         read_more = partial(self._process_response, [on_data])
         self._io_loop.add_callback(read_more)
 
@@ -188,29 +185,25 @@ class Client(object):
         if not data:
             self._sudden_disconnect()
             return
-        if data in ('$-1', '*-1'):
+        if data == '$-1':
             self.call_callbacks(callbacks, (None, None))
             return
+        elif data == '*0' or data == '*-1':
+            self.call_callbacks(callbacks, (None, []))
+            return
         head, tail = data[0], data[1:]
-        if head == '-':
-            if tail.startswith('ERR '):
-                tail = tail[4:]
-            self.call_callbacks(callbacks, (ResponseError(self.current_task, tail), None))
+        if head == '*':
+            self.do_multibulk(int(tail))
+        elif head == '$':
+            self.connection.read(int(tail)+2, partial(self._parse_value_response, callbacks))
         elif head == '+':
             self.call_callbacks(callbacks, (None, tail))
         elif head == ':':
             self.call_callbacks(callbacks, (None, int(tail)))
-        elif head == '$':
-            length = int(tail)
-            if length == -1:
-                self.call_callbacks(callbacks, (None, None))
-            self.connection.read(length+2, partial(self._parse_value_response, callbacks))
-        elif head == '*':
-            length = int(tail)
-            if length == -1:
-                self.call_callbacks(callbacks, (None, None))
-            else:
-                self.do_multibulk(length)
+        elif head == '-':
+            if tail.startswith('ERR '):
+                tail = tail[4:]
+            self.call_callbacks(callbacks, (ResponseError(self.current_task, tail), None))
         else:
             self.call_callbacks(callbacks, (InvalidResponse("Unknown response type for: %s" % self.current_task.command), None))
 
