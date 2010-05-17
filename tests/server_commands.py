@@ -1,7 +1,6 @@
 import rutabaga
 import unittest
 from tornado.ioloop import IOLoop
-from functools import partial as p
 
 
 class CustomAssertionError(AssertionError):
