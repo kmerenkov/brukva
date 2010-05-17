@@ -151,6 +151,10 @@ class Client(object):
     def schedule(self, command, callbacks, *args, **kwargs):
         self.queue.append(Task(command, callbacks, args, kwargs))
 
+    def _sudden_disconnect(self):
+        self.connection.disconnect()
+        self.call_callbacks(callbacks, (ConnectionError("Socket closed on remote end"), None))
+
     def do_multibulk(self, length):
         tokens = []
         def on_data(result):
@@ -210,7 +214,11 @@ class Client(object):
             callbacks = []
         elif not hasattr(callbacks, '__iter__'):
             callbacks = [callbacks]
-        self.connection.write(self.format(cmd, *args, **kwargs))
+        try:
+            self.connection.write(self.format(cmd, *args, **kwargs))
+        except IOError:
+            self._sudden_disconnect()
+            return
         self.schedule(cmd, callbacks, *args, **kwargs)
         self.try_to_loop()
 
