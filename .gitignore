@@ -1,9 +1,0 @@
-_Store
-*~
-*.pyc
-build/*
-dist/*
-*/dist/*
-*.egg
-*.egg-info
-src/*.egg-info/*
