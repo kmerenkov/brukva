@@ -163,6 +163,9 @@ class Client(object):
                 self.propogate_result((None, tokens))
             else:
                 self._io_loop.add_callback(read_more)
+        if not length:
+            self.propogate_result((None, []))
+            return
         read_more = partial(self._process_response, [on_data])
         self._io_loop.add_callback(read_more)
 
@@ -170,7 +173,6 @@ class Client(object):
     def _process_response(self, callbacks=None):
         callbacks = callbacks or [self.propogate_result]
         data = yield adisp.async(self.connection.readline)()
-        #print 'd:', data
         if not data:
             self.connection.disconnect()
             self.call_callbacks(callbacks, (ConnectionError("Socket closed on remote end"), None))
