@@ -43,7 +43,7 @@ class MessagesCatcher(tornado.websocket.WebSocketHandler):
     def on_message(self, result):
         (error, data) = result
         if not error:
-            self.write_message(data.body)
+            self.write_message(str(data.body))
 
     def close(self):
         self.client.unsubscribe('test_channel')
