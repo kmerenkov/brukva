@@ -7,13 +7,13 @@ from functools import partial
 import redis
 
 
-r = redis.Redis(host='apodora', db=9)
+r = redis.Redis(db=9)
 
 
 async = partial(rutabaga.adisp.async, cbname='callbacks')
 
 
-c = rutabaga.Client(host='apodora')
+c = rutabaga.Client()
 c.connect()
 
 c.select(9)
