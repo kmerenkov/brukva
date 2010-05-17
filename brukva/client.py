@@ -9,17 +9,7 @@ from brukva.exceptions import RedisError, ConnectionError, ResponseError, Invali
 
 
 Message = namedtuple('Message', 'kind channel body')
-
-
-class Task(object):
-    def __init__(self, command, callbacks, command_args, command_kwargs):
-        self.command = command
-        self.command_args = command_args
-        self.command_kwargs = command_kwargs
-        self.callbacks = callbacks
-
-    def __repr__(self):
-        return 'Task (command=%s, command_args=%s, command_kwargs=%s, %d callbacks)' % (self.command, self.command_args, self.command_kwargs, len(self.callbacks))
+Task = namedtuple('Task', 'command callbacks command_args command_kwargs')
 
 
 def string_keys_to_dict(key_string, callback):
