@@ -232,7 +232,7 @@ class Client(object):
     def shutdown(self, callbacks=None):
         self.execute_command('SHUTDOWN', callbacks)
 
-    def keys(self, pattern='', callbacks=None):
+    def keys(self, pattern, callbacks=None):
         self.execute_command('KEYS', callbacks, pattern)
 
     ### BASIC KEY COMMANDS
