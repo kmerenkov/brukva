@@ -64,8 +64,8 @@ class ServerCommandsTestCase(TestIOLoop):
     def test_keys(self):
         self.client.set('a', 1, self.expect(True))
         self.client.set('b', 2, self.expect(True))
+        self.client.keys('*', self.expect(['a', 'b']))
 
-        self.client.keys(self.expect(['a', 'b']))
         self.client.set('foo_a', 1, self.expect(True))
         self.client.set('foo_b', 2, self.expect(True))
         self.client.keys('foo_*', [self.expect(['foo_a', 'foo_b']), self.finish])
