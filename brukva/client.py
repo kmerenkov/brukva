@@ -32,8 +32,9 @@ class Connection(object):
     def connect(self):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-            sock.connect((self.host, self.port))
+            sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
             sock.settimeout(self.timeout)
+            sock.connect((self.host, self.port))
             self._stream = IOStream(sock, io_loop=self._io_loop)
         except socket.error, e:
             raise ConnectionError(str(e))
