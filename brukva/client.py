@@ -372,6 +372,9 @@ class Client(object):
     def hlen(self, key, callbacks=None):
         self.execute_command('HLEN', callbacks, key)
 
+    def hexists(self, key, hkey, callbacks=None):
+        self.execute_command('HEXISTS', callbacks, key, hkey)
+
     ### PUBSUB
     def subscribe(self, channels, callbacks=None):
         callbacks = callbacks or []
