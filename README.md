@@ -29,3 +29,9 @@ brukva is developed and maintained by [Konstantin Merenkov](mailto:kmerenkov@gma
  * Inspiration: [redis-py](http://github.com/andymccurdy/redis-py)
  * Third-party software: [adisp](https://code.launchpad.net/adisp)
 
+
+License
+-------
+See LICENSE file.
+Long story short: WTFPL v2
+
