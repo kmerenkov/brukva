@@ -159,8 +159,12 @@ class Client(object):
                 self.propogate_result((error, None))
                 return
             tokens.append(data)
-        [ self._process_response([on_data]) for i in xrange(length) ]
-        self.propogate_result((None, tokens))
+            if len(tokens) == length:
+                self.propogate_result((None, tokens))
+            else:
+                self._io_loop.add_callback(read_more)
+        read_more = partial(self._process_response, [on_data])
+        self._io_loop.add_callback(read_more)
 
     @adisp.process
     def _process_response(self, callbacks=None):
