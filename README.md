@@ -10,7 +10,8 @@ Usage
     >>> import rutabaga
     >>> c = rutabaga.Client()
     >>> c.connect()
-    >>> def on_result(data, error):
+    >>> def on_result(result):
+           (error, data) = result
            print data or error
     >>> c.set('foo', 'bar', on_result)
     >>> c.get('foo', on_result)
