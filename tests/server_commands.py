@@ -29,7 +29,9 @@ class TestIOLoop(unittest.TestCase):
 
     def expect(self, expected):
         def callback(result):
-            (_, data) = result
+            (error, data) = result
+            if error:
+                self.assertFalse(error)
             if callable(expected):
                 self.assertTrue(expected(data))
             else:
