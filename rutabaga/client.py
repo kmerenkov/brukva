@@ -91,7 +91,8 @@ class Client(object):
 
 
     def __init__(self, host='localhost', port=6379, io_loop=None):
-        self.connection = Connection(host, port, io_loop=io_loop)
+        self._io_loop = io_loop or IOLoop.instance()
+        self.connection = Connection(host, port, io_loop=self._io_loop)
         self.queue = []
         self.in_progress = False
         self.current_task = None
@@ -143,7 +144,7 @@ class Client(object):
         if not self.in_progress and self.queue:
             self.in_progress = True
             self.current_task = self.queue.pop(0)
-            self._process_response()
+            self._io_loop.add_callback(self._process_response)
         elif not self.queue:
             self.current_task = None
 
