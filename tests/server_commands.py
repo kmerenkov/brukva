@@ -65,6 +65,7 @@ class ServerCommandsTestCase(TestIOLoop):
         self.client.set('a', 1, self.expect(True))
         self.client.set('b', 2, self.expect(True))
         self.client.keys('*', self.expect(['a', 'b']))
+        self.client.keys('', self.expect([]))
 
         self.client.set('foo_a', 1, self.expect(True))
         self.client.set('foo_b', 2, self.expect(True))
@@ -102,6 +103,7 @@ class ServerCommandsTestCase(TestIOLoop):
         self.start()
 
     def test_sets(self):
+        self.client.smembers('foo', self.expect(set()))
         self.client.sadd('foo', 'a', self.expect(True))
         self.client.sadd('foo', 'b', self.expect(True))
         self.client.sadd('foo', 'c', self.expect(True))
