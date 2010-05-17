@@ -55,7 +55,7 @@ class Connection(object):
         self._stream.read_bytes(length, callback)
 
     def readline(self, callback):
-        self._stream.read_until('\r\n', lambda data: callback(data[:-2]))
+        self._stream.read_until('\r\n', callback)
 
 
 class Client(object):
@@ -168,13 +168,14 @@ class Client(object):
         if not data:
             self._sudden_disconnect()
             return
-        data = data[:-2]
+        data = data[:-2] # strip \r\n
         self.call_callbacks(callbacks, (None, data))
 
     def _parse_command_response(self, callbacks, data):
         if not data:
             self._sudden_disconnect()
             return
+        data = data[:-2] # strip \r\n
         if data == '$-1':
             self.call_callbacks(callbacks, (None, None))
             return
