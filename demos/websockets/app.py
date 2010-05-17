@@ -1,4 +1,4 @@
-# Demo application for rutabaga
+# Demo application for brukva
 # In order to use:
 #  1. $ python app.py
 #  2. Open in your browser that supports websockets: http://localhost:8888/
@@ -6,14 +6,14 @@
 #  3. $ curl http://localhost:8888/msg -d 'message=Hello!'
 #     You should see 'Hello!' in your browser
 
-import rutabaga
+import brukva
 import tornado.httpserver
 import tornado.web
 import tornado.websocket
 import tornado.ioloop
 
 
-c = rutabaga.Client()
+c = brukva.Client()
 c.connect()
 
 
@@ -33,7 +33,7 @@ class NewMessage(tornado.web.RequestHandler):
 class MessagesCatcher(tornado.websocket.WebSocketHandler):
     def __init__(self, *args, **kwargs):
         super(MessagesCatcher, self).__init__(*args, **kwargs)
-        self.client = rutabaga.Client()
+        self.client = brukva.Client()
         self.client.connect()
         self.client.subscribe('test_channel')
 

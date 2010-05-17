@@ -1,9 +1,9 @@
-import rutabaga
+import brukva
 import tornado.httpserver
 import tornado.web
 import tornado.websocket
 import tornado.ioloop
-from rutabaga import adisp
+from brukva import adisp
 import logging
 from functools import partial
 
@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger('app')
 
 
-c = rutabaga.Client()
+c = brukva.Client()
 c.connect()
 
 

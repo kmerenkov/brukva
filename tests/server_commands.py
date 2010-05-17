@@ -1,4 +1,4 @@
-import rutabaga
+import brukva
 import unittest
 from tornado.ioloop import IOLoop
 
@@ -19,7 +19,7 @@ class TestIOLoop(unittest.TestCase):
     def setUp(self):
         self.loop = IOLoop()
         CustomAssertionError.io_loop = self.loop
-        self.client = rutabaga.Client(io_loop=self.loop)
+        self.client = brukva.Client(io_loop=self.loop)
         self.client.connection.connect()
         self.client.select(9)
         self.client.flushdb()

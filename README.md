@@ -1,4 +1,4 @@
-rutabaga
+brükva
 ========
 
 Asynchronous [Redis](http://redis-db.com/) client that works within [Tornado](http://tornadoweb.org/) IO loop.
@@ -7,8 +7,8 @@ Asynchronous [Redis](http://redis-db.com/) client that works within [Tornado](ht
 Usage
 -----
 
-    >>> import rutabaga
-    >>> c = rutabaga.Client()
+    >>> import brukva
+    >>> c = brukva.Client()
     >>> c.connect()
     >>> def on_result(result):
            (error, data) = result
@@ -24,7 +24,7 @@ Usage
 
 Credits
 -------
-rutabaga is developed and maintained by [Konstantin Merenkov](mailto:kmerenkov@gmail.com)
+brukva is developed and maintained by [Konstantin Merenkov](mailto:kmerenkov@gmail.com)
 
  * Inspiration: [redis-py](http://github.com/andymccurdy/redis-py)
  * Third-party software: [adisp](https://code.launchpad.net/adisp)

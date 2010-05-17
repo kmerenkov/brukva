@@ -1,4 +1,4 @@
-import rutabaga
+import brukva
 import tornado.httpserver
 import tornado.web
 import tornado.websocket
@@ -10,10 +10,10 @@ import redis
 r = redis.Redis(db=9)
 
 
-async = partial(rutabaga.adisp.async, cbname='callbacks')
+async = partial(brukva.adisp.async, cbname='callbacks')
 
 
-c = rutabaga.Client()
+c = brukva.Client()
 c.connect()
 
 c.select(9)
@@ -21,9 +21,9 @@ c.set('foo', 'bar')
 c.set('foo2', 'bar2')
 
 
-class RutabagaHandler(tornado.web.RequestHandler):
+class BrukvaHandler(tornado.web.RequestHandler):
     @tornado.web.asynchronous
-    @rutabaga.adisp.process
+    @brukva.adisp.process
     def get(self):
         ((_, foo), (_, foo2)) = yield [ async(c.get)('foo'), async(c.get)('foo2') ]
         self.set_header('Content-Type', 'text/plain')
@@ -50,7 +50,7 @@ class HelloHandler(tornado.web.RequestHandler):
 
 
 application = tornado.web.Application([
-    (r'/rutabaga', RutabagaHandler),
+    (r'/brukva', BrukvaHandler),
     (r'/redis', RedisHandler),
     (r'/hello', HelloHandler),
 ])

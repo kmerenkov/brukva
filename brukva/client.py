@@ -5,7 +5,7 @@ from tornado.iostream import IOStream
 import adisp
 from functools import partial
 from collections import namedtuple
-from rutabaga.exceptions import RedisError, ConnectionError, ResponseError, InvalidResponse
+from brukva.exceptions import RedisError, ConnectionError, ResponseError, InvalidResponse
 
 
 Message = namedtuple('Message', 'kind channel body')
@@ -99,7 +99,7 @@ class Client(object):
         self.subscribed = False
 
     def __repr__(self):
-        return 'Rutabaga client (host=%s, port=%s)' % (self.connection.host, self.connection.port)
+        return 'Brukva client (host=%s, port=%s)' % (self.connection.host, self.connection.port)
 
     def connect(self):
         self.connection.connect()
