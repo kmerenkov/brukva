@@ -336,13 +336,13 @@ class Client(object):
         self.execute_command('SUNION', callbacks, *keys)
 
     def sinterstore(self, keys, dst, callbacks=None):
-        self.execute_command('SINTERSTORE', dst, *keys)
+        self.execute_command('SINTERSTORE', callbacks, dst, *keys)
 
     def sunionstore(self, keys, dst, callbacks=None):
-        self.execute_command('SUNIONSTORE', dst, *keys)
+        self.execute_command('SUNIONSTORE', callbacks, dst, *keys)
 
     def sdiffstore(self, keys, dst, callbacks=None):
-        self.execute_command('SDIFFSTORE', dst, *keys)
+        self.execute_command('SDIFFSTORE', callbacks, dst, *keys)
 
     ### HASH COMMANDS
     def hgetall(self, key, callbacks=None):

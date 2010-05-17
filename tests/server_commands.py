@@ -59,6 +59,16 @@ class ServerCommandsTestCase(TestIOLoop):
         self.client.dbsize([self.expect(2), self.finish])
         self.start()
 
+    def test_keys(self):
+        self.client.set('a', 1, self.expect(True))
+        self.client.set('b', 2, self.expect(True))
+
+        self.client.keys(self.expect(['a', 'b']))
+        self.client.set('foo_a', 1, self.expect(True))
+        self.client.set('foo_b', 2, self.expect(True))
+        self.client.keys('foo_*', [self.expect(['foo_a', 'foo_b']), self.finish])
+        self.start()
+
     def test_hash(self):
         self.client.hmset('foo', {'a': 1, 'b': 2}, self.expect(True))
         self.client.hgetall('foo', self.expect({'a': '1', 'b': '2'}))
@@ -124,14 +134,14 @@ class ServerCommandsTestCase(TestIOLoop):
         self.client.sadd('bar', 'c', self.expect(True))
         self.client.sadd('bar', 'd', self.expect(True))
 
-        self.client.sdiffstore(['foo', 'bar'], 'zar', self.expect(True))
+        self.client.sdiffstore(['foo', 'bar'], 'zar', self.expect(1))
         self.client.smembers('zar', self.expect(set(['a'])))
         self.client.delete('zar', self.expect(True))
 
-        self.client.sinterstore(['foo', 'bar'], 'zar', self.expect(True))
+        self.client.sinterstore(['foo', 'bar'], 'zar', self.expect(2))
         self.client.smembers('zar', self.expect(set(['b', 'c'])))
         self.client.delete('zar', self.expect(True))
 
-        self.client.sunionstore(['foo', 'bar'], 'zar', self.expect(True))
+        self.client.sunionstore(['foo', 'bar'], 'zar', self.expect(4))
         self.client.smembers('zar', [self.expect(set(['a', 'b', 'c', 'd'])), self.finish])
-
+        self.start()
