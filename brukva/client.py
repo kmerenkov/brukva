@@ -382,10 +382,10 @@ class Client(object):
         self.execute_command('HKEYS', callbacks, key)
 
     def hmget(self, key, fields, callbacks=None):
-        self.execute_command('HMGET', key, *fields)
+        self.execute_command('HMGET', callbacks, key, *fields)
 
     def hvals(self, key):
-        self.execute_command('HVALS', key)
+        self.execute_command('HVALS', callbacks, key)
 
     ### PUBSUB
     def subscribe(self, channels, callbacks=None):
