@@ -247,6 +247,9 @@ class Client(object):
     def get(self, key, callbacks=None):
         self.execute_command('GET', callbacks, key)
 
+    def exists(self, key, callbacks=None):
+        self.execute_command('EXISTS', callbacks, key)
+
     ### COUNTERS COMMANDS
     def incr(self, key, callbacks=None):
         self.execute_command('INCR', callbacks, key)

@@ -90,6 +90,13 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.keys('foo_*', [self.expect(['foo_a', 'foo_b']), self.finish])
         self.start()
 
+    def test_exists(self):
+        self.client.set('a', 1, self.expect(True))
+        self.client.exists('a', self.expect(True))
+        self.client.delete('a', self.expect(True))
+        self.client.exists('a', [self.expect(False), self.finish])
+        self.start()
+
     def test_hash(self):
         self.client.hmset('foo', {'a': 1, 'b': 2}, self.expect(True))
         self.client.hgetall('foo', self.expect({'a': '1', 'b': '2'}))
