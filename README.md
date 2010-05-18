@@ -22,6 +22,14 @@ Usage
     ResponseError (on HGETALL [('foo',), {}]): Operation against a key holding the wrong kind of value
 
 
+Tips on testing
+---------------
+
+Run tests with the following command:
+
+    nosetests -s -w tests --nologcapture
+
+
 Credits
 -------
 brukva is developed and maintained by [Konstantin Merenkov](mailto:kmerenkov@gmail.com)
