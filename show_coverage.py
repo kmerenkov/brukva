@@ -106,3 +106,5 @@ if __name__ == '__main__':
     for c in sorted(uncovered_commands):
         print '\t%s' % c
     print 'Commands to cover: %d' % len(uncovered_commands)
+    print 'Already covered: %d' % len(set(REDIS_COMMANDS).intersection(covered_commands))
+
