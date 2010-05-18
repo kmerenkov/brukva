@@ -120,9 +120,9 @@ class ServerCommandsTestCase(TestIOLoop):
 
     def test_sets(self):
         self.client.smembers('foo', self.expect(set()))
-        self.client.sadd('foo', 'a', self.expect(True))
-        self.client.sadd('foo', 'b', self.expect(True))
-        self.client.sadd('foo', 'c', self.expect(True))
+        self.client.sadd('foo', 'a', self.expect(1))
+        self.client.sadd('foo', 'b', self.expect(1))
+        self.client.sadd('foo', 'c', self.expect(1))
         self.client.srandmember('foo', self.expect(lambda x: x in ['a', 'b', 'c']))
         self.client.scard('foo', self.expect(3))
         self.client.srem('foo', 'a', self.expect(True))
@@ -133,12 +133,12 @@ class ServerCommandsTestCase(TestIOLoop):
         self.start()
 
     def test_sets2(self):
-        self.client.sadd('foo', 'a', self.expect(True))
-        self.client.sadd('foo', 'b', self.expect(True))
-        self.client.sadd('foo', 'c', self.expect(True))
-        self.client.sadd('bar', 'b', self.expect(True))
-        self.client.sadd('bar', 'c', self.expect(True))
-        self.client.sadd('bar', 'd', self.expect(True))
+        self.client.sadd('foo', 'a', self.expect(1))
+        self.client.sadd('foo', 'b', self.expect(1))
+        self.client.sadd('foo', 'c', self.expect(1))
+        self.client.sadd('bar', 'b', self.expect(1))
+        self.client.sadd('bar', 'c', self.expect(1))
+        self.client.sadd('bar', 'd', self.expect(1))
 
         self.client.sdiff(['foo', 'bar'], self.expect(set(['a'])))
         self.client.sdiff(['bar', 'foo'], self.expect(set(['d'])))
@@ -147,12 +147,12 @@ class ServerCommandsTestCase(TestIOLoop):
         self.start()
 
     def test_sets3(self):
-        self.client.sadd('foo', 'a', self.expect(True))
-        self.client.sadd('foo', 'b', self.expect(True))
-        self.client.sadd('foo', 'c', self.expect(True))
-        self.client.sadd('bar', 'b', self.expect(True))
-        self.client.sadd('bar', 'c', self.expect(True))
-        self.client.sadd('bar', 'd', self.expect(True))
+        self.client.sadd('foo', 'a', self.expect(1))
+        self.client.sadd('foo', 'b', self.expect(1))
+        self.client.sadd('foo', 'c', self.expect(1))
+        self.client.sadd('bar', 'b', self.expect(1))
+        self.client.sadd('bar', 'c', self.expect(1))
+        self.client.sadd('bar', 'd', self.expect(1))
 
         self.client.sdiffstore(['foo', 'bar'], 'zar', self.expect(1))
         self.client.smembers('zar', self.expect(set(['a'])))
