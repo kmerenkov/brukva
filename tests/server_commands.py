@@ -80,7 +80,7 @@ class ServerCommandsTestCase(TestIOLoop):
         self.client.hget('foo', 'a', self.expect(''))
         self.client.hget('foo', 'b', self.expect('2'))
         self.client.hlen('foo', self.expect(1))
-        self.client.hincrby('foo', 'b', 3, self.expect('5'))
+        self.client.hincrby('foo', 'b', 3, self.expect(5))
         self.client.hexists('foo', 'b', [self.expect(True), self.finish])
         self.start()
 
