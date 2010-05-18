@@ -360,20 +360,32 @@ class Client(object):
         [ items.extend(pair) for pair in mapping.iteritems() ]
         self.execute_command('HMSET', callbacks, key, *items)
 
-    def hset(self, key, hkey, value, callbacks=None):
-        self.execute_command('HSET', callbacks, key, hkey, value)
+    def hset(self, key, field, value, callbacks=None):
+        self.execute_command('HSET', callbacks, key, field, value)
 
-    def hget(self, key, hkey, callbacks=None):
-        self.execute_command('HGET', callbacks, key, hkey)
+    def hget(self, key, field, callbacks=None):
+        self.execute_command('HGET', callbacks, key, field)
 
-    def hdel(self, key, hkey, callbacks=None):
-        self.execute_command('HDEL', callbacks, key, hkey)
+    def hdel(self, key, field, callbacks=None):
+        self.execute_command('HDEL', callbacks, key, field)
 
     def hlen(self, key, callbacks=None):
         self.execute_command('HLEN', callbacks, key)
 
-    def hexists(self, key, hkey, callbacks=None):
-        self.execute_command('HEXISTS', callbacks, key, hkey)
+    def hexists(self, key, field, callbacks=None):
+        self.execute_command('HEXISTS', callbacks, key, field)
+
+    def hincrby(self, key, field, amount=1, callbacks=None):
+        self.execute_command('HINCRBY', callbacks, key, field, amount)
+
+    def hkeys(self, key, callbacks=None):
+        self.execute_command('HKEYS', callbacks, key)
+
+    def hmget(self, key, fields, callbacks=None):
+        self.execute_command('HMGET', key, *fields)
+
+    def hvals(self, key):
+        self.execute_command('HVALS', key)
 
     ### PUBSUB
     def subscribe(self, channels, callbacks=None):
