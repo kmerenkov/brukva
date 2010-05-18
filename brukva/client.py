@@ -61,7 +61,7 @@ class Connection(object):
 
 class Client(object):
     REPLY_MAP = dict_merge(
-        string_keys_to_dict('DEL EXISTS HDEL HEXISTS HMSET',
+        string_keys_to_dict('DEL EXISTS HDEL HEXISTS HMSET MSET',
                             bool),
         string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SHUTDOWN',
                             lambda r: r == 'OK'),
@@ -244,8 +244,16 @@ class Client(object):
     def set(self, key, value, callbacks=None):
         self.execute_command('SET', callbacks, key, value)
 
+    def mset(self, mapping, callbacks=None):
+        items = []
+        [ items.extend(pair) for pair in mapping.iteritems() ]
+        self.execute_command('MSET', callbacks, *items)
+
     def get(self, key, callbacks=None):
         self.execute_command('GET', callbacks, key)
+
+    def mget(self, keys, callbacks=None):
+        self.execute_command('MGET', callbacks, *keys)
 
     def exists(self, key, callbacks=None):
         self.execute_command('EXISTS', callbacks, key)

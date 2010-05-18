@@ -97,6 +97,13 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.exists('a', [self.expect(False), self.finish])
         self.start()
 
+    def test_mset_mget(self):
+        self.client.mset({'a': 1, 'b': 2}, self.expect(True))
+        self.client.get('a', self.expect('1'))
+        self.client.get('b', self.expect('2'))
+        self.client.mget(['a', 'b'], [self.expect(['1', '2']), self.finish])
+        self.start()
+
     def test_hash(self):
         self.client.hmset('foo', {'a': 1, 'b': 2}, self.expect(True))
         self.client.hgetall('foo', self.expect({'a': '1', 'b': '2'}))
