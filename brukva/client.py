@@ -384,7 +384,7 @@ class Client(object):
     def hmget(self, key, fields, callbacks=None):
         self.execute_command('HMGET', callbacks, key, *fields)
 
-    def hvals(self, key):
+    def hvals(self, key, callbacks=None):
         self.execute_command('HVALS', callbacks, key)
 
     ### PUBSUB
