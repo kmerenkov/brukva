@@ -62,7 +62,8 @@ class Connection(object):
 
 class Client(object):
     REPLY_MAP = dict_merge(
-        string_keys_to_dict('BGSAVE DEL EXISTS HDEL HEXISTS HMSET MSET SAVE',
+        string_keys_to_dict('BGREWRITEAOF BGSAVE DEL EXISTS HDEL HEXISTS HMSET '
+                            'MSET SAVE',
                             bool),
         string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SHUTDOWN',
                             lambda r: r == 'OK'),
@@ -212,6 +213,9 @@ class Client(object):
 
 
     ### MAINTENANCE
+    def bgrewriteaof(self, callbacks=None):
+        self.execute_command('BGREWRITEAOF', callbacks)
+
     def dbsize(self, callbacks=None):
         self.execute_command('DBSIZE', callbacks)
 
