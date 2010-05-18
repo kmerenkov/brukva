@@ -55,7 +55,18 @@ class ServerCommandsTestCase(TestIOLoop):
         self.client.get('foo', [self.expect('bar'), self.finish])
         self.start()
 
-    def test_dbinfo(self):
+    def test_substr(self):
+        self.client.set('foo', 'lorem ipsum', self.expect(True))
+        self.client.substr('foo', 2, 4, [self.expect('rem'), self.finish])
+        self.start()
+
+    def test_append(self):
+        self.client.set('foo', 'lorem ipsum', self.expect(True))
+        self.client.append('foo', ' bar', self.expect(15))
+        self.client.get('foo', [self.expect('lorem ipsum bar'), self.finish])
+        self.start()
+
+    def test_dbsize(self):
         self.client.set('a', 1, self.expect(True))
         self.client.set('b', 2, self.expect(True))
         self.client.dbsize([self.expect(2), self.finish])
