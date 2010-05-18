@@ -61,25 +61,6 @@ class Connection(object):
 
 
 class Client(object):
-    REPLY_MAP = dict_merge(
-        string_keys_to_dict('BGREWRITEAOF BGSAVE DEL EXISTS HDEL HEXISTS HMSET '
-                            'MSET SAVE',
-                            bool),
-        string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SHUTDOWN',
-                            lambda r: r == 'OK'),
-        string_keys_to_dict('SMEMBERS SINTER SUNION SDIFF',
-                            set),
-        string_keys_to_dict('HGETALL',
-                            lambda pairs: dict(zip(pairs[::2], pairs[1::2]))),
-        string_keys_to_dict('HGET',
-                            lambda r: r or ''),
-        string_keys_to_dict('SUBSCRIBE UNSUBSCRIBE LISTEN',
-                            lambda r: Message(*r)),
-        {'PING': lambda r: r == 'PONG'},
-        {'LASTSAVE': lambda t: datetime.fromtimestamp(int(t))},
-        )
-
-
     def __init__(self, host='localhost', port=6379, io_loop=None):
         self._io_loop = io_loop or IOLoop.instance()
         self.connection = Connection(host, port, io_loop=self._io_loop)
@@ -87,6 +68,34 @@ class Client(object):
         self.in_progress = False
         self.current_task = None
         self.subscribed = False
+        self.REPLY_MAP = dict_merge(
+                string_keys_to_dict('BGREWRITEAOF BGSAVE DEL EXISTS HDEL HEXISTS HMSET '
+                                    'MSET SAVE',
+                                    bool),
+                string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SHUTDOWN',
+                                    lambda r: r == 'OK'),
+                string_keys_to_dict('SMEMBERS SINTER SUNION SDIFF',
+                                    set),
+                string_keys_to_dict('HGETALL',
+                                    lambda pairs: dict(zip(pairs[::2], pairs[1::2]))),
+                string_keys_to_dict('HGET',
+                                    lambda r: r or ''),
+                string_keys_to_dict('SUBSCRIBE UNSUBSCRIBE LISTEN',
+                                    lambda r: Message(*r)),
+                string_keys_to_dict('ZRANK ZREVRANK',
+                                    lambda r: int(r) if r is not None else None),
+                string_keys_to_dict('ZSCORE ZINCRBY',
+                                    lambda r: float(r) if r is not None else None),
+                string_keys_to_dict('ZRANGE ZRANGEBYSCORE ZREVRANGE',
+                                    self.zset_score_pairs),
+                {'PING': lambda r: r == 'PONG'},
+                {'LASTSAVE': lambda t: datetime.fromtimestamp(int(t))},
+            )
+
+    def zset_score_pairs(self, response):
+        if not response or not 'WITHSCORES' in self.current_task.command_args:
+            return response
+        return zip(response[::2], map(float, response[1::2]))
 
     def __repr__(self):
         return 'Brukva client (host=%s, port=%s)' % (self.connection.host, self.connection.port)
@@ -126,9 +135,9 @@ class Client(object):
             cb(*args, **kwargs)
 
     def format_reply(self, command, data):
-        if command not in Client.REPLY_MAP:
+        if command not in self.REPLY_MAP:
             return data
-        return Client.REPLY_MAP[command](data)
+        return self.REPLY_MAP[command](data)
 
     def try_to_loop(self):
         if not self.in_progress and self.queue:
@@ -375,6 +384,40 @@ class Client(object):
 
     def sdiffstore(self, keys, dst, callbacks=None):
         self.execute_command('SDIFFSTORE', callbacks, dst, *keys)
+
+    ### SORTED SET COMMANDS
+    def zadd(self, key, score, value, callbacks=None):
+        self.execute_command('ZADD', callbacks, key, score, value)
+
+    def zcard(self, key, callbacks=None):
+        self.execute_command('ZCARD', callbacks, key)
+
+    def zincrby(self, key, value, amount, callbacks=None):
+        self.execute_command('ZINCRBY', callbacks, key, amount, value)
+
+    def zrank(self, key, value, callbacks=None):
+        self.execute_command('ZRANK', callbacks, key, value)
+
+    def zrevrank(self, key, value, callbacks=None):
+        self.execute_command('ZREVRANK', callbacks, key, value)
+
+    def zrem(self, key, value, callbacks=None):
+        self.execute_command('ZREM', callbacks, key, value)
+
+    def zscore(self, key, value, callbacks=None):
+        self.execute_command('ZSCORE', callbacks, key, value)
+
+    def zrange(self, key, start, num, with_scores, callbacks=None):
+        tokens = [key, start, num]
+        if with_scores:
+            tokens.append('WITHSCORES')
+        self.execute_command('ZRANGE', callbacks, *tokens)
+
+    def zrevrange(self, key, start, num, with_scores, callbacks=None):
+        tokens = [key, start, num]
+        if with_scores:
+            tokens.append('WITHSCORES')
+        self.execute_command('ZREVRANGE', callbacks, *tokens)
 
     ### HASH COMMANDS
     def hgetall(self, key, callbacks=None):

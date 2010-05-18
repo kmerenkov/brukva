@@ -200,5 +200,26 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.smembers('zar', [self.expect(set(['a', 'b', 'c', 'd'])), self.finish])
         self.start()
 
+    def test_zsets(self):
+        self.client.zadd('foo', 1, 'a', self.expect(1))
+        self.client.zadd('foo', 2, 'b', self.expect(1))
+        self.client.zscore('foo', 'a', self.expect(1))
+        self.client.zscore('foo', 'b', self.expect(2))
+        self.client.zrank('foo', 'a', self.expect(0))
+        self.client.zrank('foo', 'b', self.expect(1))
+        self.client.zrevrank('foo', 'a', self.expect(1))
+        self.client.zrevrank('foo', 'b', self.expect(0))
+        self.client.zincrby('foo', 'a', 1, self.expect(2))
+        self.client.zincrby('foo', 'b', 1, self.expect(3))
+        self.client.zscore('foo', 'a', self.expect(2))
+        self.client.zscore('foo', 'b', self.expect(3))
+        self.client.zrange('foo', 0, -1, True, self.expect([('a', 2.0), ('b', 3.0)]))
+        self.client.zrange('foo', 0, -1, False, self.expect(['a', 'b']))
+        self.client.zrevrange('foo', 0, -1, True, self.expect([('b', 3.0), ('a', 2.0)]))
+        self.client.zrevrange('foo', 0, -1, False, self.expect(['b', 'a']))
+        self.client.zcard('foo', [self.expect(2), self.finish])
+        self.start()
+
+
 if __name__ == '__main__':
     unittest.main()
