@@ -1,6 +1,7 @@
 import brukva
 import unittest
 import sys
+from datetime import datetime, timedelta
 from tornado.ioloop import IOLoop
 
 
@@ -77,6 +78,12 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.set('a', 1, self.expect(True))
         self.client.set('b', 2, self.expect(True))
         self.client.dbsize([self.expect(2), self.finish])
+        self.start()
+
+    def test_save(self):
+        self.client.save(self.expect(True))
+        now = datetime.now().replace(microsecond=0)
+        self.client.lastsave([self.expect(lambda d: d >= now), self.finish])
         self.start()
 
     def test_keys(self):

@@ -5,6 +5,7 @@ from tornado.iostream import IOStream
 import adisp
 from functools import partial
 from collections import namedtuple
+from datetime import datetime
 from brukva.exceptions import RedisError, ConnectionError, ResponseError, InvalidResponse
 
 
@@ -61,7 +62,7 @@ class Connection(object):
 
 class Client(object):
     REPLY_MAP = dict_merge(
-        string_keys_to_dict('DEL EXISTS HDEL HEXISTS HMSET MSET',
+        string_keys_to_dict('BGSAVE DEL EXISTS HDEL HEXISTS HMSET MSET SAVE',
                             bool),
         string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SHUTDOWN',
                             lambda r: r == 'OK'),
@@ -74,6 +75,7 @@ class Client(object):
         string_keys_to_dict('SUBSCRIBE UNSUBSCRIBE LISTEN',
                             lambda r: Message(*r)),
         {'PING': lambda r: r == 'PONG'},
+        {'LASTSAVE': lambda t: datetime.fromtimestamp(int(t))},
         )
 
 
@@ -227,6 +229,15 @@ class Client(object):
 
     def shutdown(self, callbacks=None):
         self.execute_command('SHUTDOWN', callbacks)
+
+    def save(self, callbacks=None):
+        self.execute_command('SAVE', callbacks)
+
+    def bgsave(self, callbacks=None):
+        self.execute_command('BGSAVE', callbacks)
+
+    def lastsave(self, callbacks=None):
+        self.execute_command('LASTSAVE', callbacks)
 
     def keys(self, pattern, callbacks=None):
         self.execute_command('KEYS', callbacks, pattern)
