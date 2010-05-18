@@ -1,23 +1,30 @@
 import brukva
 import unittest
+import sys
 from tornado.ioloop import IOLoop
 
 
 class CustomAssertionError(AssertionError):
     io_loop = None
 
-    def __init__(self, msg):
-        super(CustomAssertionError, self).__init__(msg)
+    def __init__(self, *args, **kwargs):
+        super(CustomAssertionError, self).__init__(*args, **kwargs)
         CustomAssertionError.io_loop.stop()
 
 
-class TestIOLoop(unittest.TestCase):
+class TestIOLoop(IOLoop):
+    def handle_callback_exception(self, callback):
+        (type, value, traceback) = sys.exc_info()
+        raise type, value, traceback
+
+
+class TornadoTestCase(unittest.TestCase):
     def __init__(self, *args, **kwargs):
-        super(TestIOLoop, self).__init__(*args, **kwargs)
+        super(TornadoTestCase, self).__init__(*args, **kwargs)
         self.failureException = CustomAssertionError
 
     def setUp(self):
-        self.loop = IOLoop()
+        self.loop = TestIOLoop()
         CustomAssertionError.io_loop = self.loop
         self.client = brukva.Client(io_loop=self.loop)
         self.client.connection.connect()
@@ -45,7 +52,7 @@ class TestIOLoop(unittest.TestCase):
         self.loop.start()
 
 
-class ServerCommandsTestCase(TestIOLoop):
+class ServerCommandsTestCase(TornadoTestCase):
     def test_set(self):
         self.client.set('foo', 'bar', [self.expect(True), self.finish])
         self.start()
