@@ -111,6 +111,12 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.mget(['a', 'b'], [self.expect(['1', '2']), self.finish])
         self.start()
 
+    def test_getset(self):
+        self.client.set('a', 1, self.expect(True))
+        self.client.getset('a', 2, self.expect('1'))
+        self.client.get('a', [self.expect('2'), self.finish])
+        self.start()
+
     def test_hash(self):
         self.client.hmset('foo', {'a': 1, 'b': 2}, self.expect(True))
         self.client.hgetall('foo', self.expect({'a': '1', 'b': '2'}))

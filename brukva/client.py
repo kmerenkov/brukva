@@ -270,6 +270,9 @@ class Client(object):
     def mget(self, keys, callbacks=None):
         self.execute_command('MGET', callbacks, *keys)
 
+    def getset(self, key, value, callbacks=None):
+        self.execute_command('GETSET', callbacks, key, value)
+
     def exists(self, key, callbacks=None):
         self.execute_command('EXISTS', callbacks, key)
 
