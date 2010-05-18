@@ -16,4 +16,5 @@ setup(name='brukva',
       url='http://github.com/kmerenkov/brukva',
       keywords=['Redis', 'Tornado'],
       packages=['brukva'],
-    )
+      test_suite='tests.all_tests',
+     )
