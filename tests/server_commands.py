@@ -58,6 +58,11 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.set('foo', 'bar', [self.expect(True), self.finish])
         self.start()
 
+    def test_setex(self):
+        self.client.setex('foo', 5, 'bar', self.expect(True))
+        self.client.ttl('foo', [self.expect(5), self.finish])
+        self.start()
+
     def test_get(self):
         self.client.set('foo', 'bar', self.expect(True))
         self.client.get('foo', [self.expect('bar'), self.finish])

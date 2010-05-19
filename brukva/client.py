@@ -72,7 +72,7 @@ class Client(object):
                 string_keys_to_dict('BGREWRITEAOF BGSAVE DEL EXISTS EXPIRE HDEL HEXISTS '
                                     'HMSET MOVE MSET SAVE',
                                     bool),
-                string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SHUTDOWN '
+                string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SETEX SHUTDOWN '
                                     'RENAME RENAMENX',
                                     lambda r: r == 'OK'),
                 string_keys_to_dict('SMEMBERS SINTER SUNION SDIFF',
@@ -287,6 +287,9 @@ class Client(object):
 
     def set(self, key, value, callbacks=None):
         self.execute_command('SET', callbacks, key, value)
+
+    def setex(self, key, ttl, value, callbacks=None):
+        self.execute_command('SETEX', callbacks, key, ttl, value)
 
     def mset(self, mapping, callbacks=None):
         items = []
