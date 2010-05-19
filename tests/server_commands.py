@@ -166,6 +166,11 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.mget(['a', 'b'], [self.expect(['1', '2']), self.finish])
         self.start()
 
+    def test_msetnx(self):
+        self.client.msetnx({'a': 1, 'b': 2}, self.expect(True))
+        self.client.msetnx({'b': 3, 'c': 4}, [self.expect(False), self.finish])
+        self.start()
+
     def test_getset(self):
         self.client.set('a', 1, self.expect(True))
         self.client.getset('a', 2, self.expect('1'))

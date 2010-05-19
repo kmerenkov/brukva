@@ -70,7 +70,7 @@ class Client(object):
         self.subscribed = False
         self.REPLY_MAP = dict_merge(
                 string_keys_to_dict('BGREWRITEAOF BGSAVE DEL EXISTS EXPIRE HDEL HEXISTS '
-                                    'HMSET MOVE MSET SAVE SETNX',
+                                    'HMSET MOVE MSET MSETNX SAVE SETNX',
                                     bool),
                 string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SETEX SHUTDOWN '
                                     'RENAME RENAMENX',
@@ -301,6 +301,11 @@ class Client(object):
         items = []
         [ items.extend(pair) for pair in mapping.iteritems() ]
         self.execute_command('MSET', callbacks, *items)
+
+    def msetnx(self, mapping, callbacks=None):
+        items = []
+        [ items.extend(pair) for pair in mapping.iteritems() ]
+        self.execute_command('MSETNX', callbacks, *items)
 
     def get(self, key, callbacks=None):
         self.execute_command('GET', callbacks, key)
