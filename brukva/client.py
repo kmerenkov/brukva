@@ -21,6 +21,27 @@ def dict_merge(*dicts):
     [merged.update(d) for d in dicts]
     return merged
 
+def parse_info(response):
+    info = {}
+    def get_value(value):
+        if ',' not in value:
+            return value
+        sub_dict = {}
+        for item in value.split(','):
+            k, v = item.split('=')
+            try:
+                sub_dict[k] = int(v)
+            except ValueError:
+                sub_dict[k] = v
+        return sub_dict
+    for line in response.splitlines():
+        key, value = line.split(':')
+        try:
+            info[key] = int(value)
+        except ValueError:
+            info[key] = get_value(value)
+    return info
+
 
 class Connection(object):
     def __init__(self, host, port, timeout=None, io_loop=None):
@@ -92,6 +113,7 @@ class Client(object):
                 {'PING': lambda r: r == 'PONG'},
                 {'LASTSAVE': lambda t: datetime.fromtimestamp(int(t))},
                 {'TTL': lambda r: r != -1 and r or None},
+                {'INFO': parse_info},
             )
 
     def zset_score_pairs(self, response):
@@ -238,6 +260,9 @@ class Client(object):
 
     def ping(self, callbacks=None):
         self.execute_command('PING', callbacks)
+
+    def info(self, callbacks=None):
+        self.execute_command('INFO', callbacks)
 
     def select(self, db, callbacks=None):
         self.execute_command('SELECT', callbacks, db)

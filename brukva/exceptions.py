@@ -12,7 +12,7 @@ class ResponseError(RedisError):
         self.message = message
 
     def __repr__(self):
-        return 'ResponseError (on %s [%s, %s]): %s' % (self.task.command, self.task.args, self.task.kwargs, self.message)
+        return 'ResponseError (on %s [%s, %s]): %s' % (self.task.command, self.task.command_args, self.task.command_kwargs, self.message)
 
     __str__ = __repr__
 
