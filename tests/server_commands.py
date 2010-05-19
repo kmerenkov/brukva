@@ -63,6 +63,11 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.ttl('foo', [self.expect(5), self.finish])
         self.start()
 
+    def test_setnx(self):
+        self.client.setnx('a', 1, self.expect(True))
+        self.client.setnx('a', 0, [self.expect(False), self.finish])
+        self.start()
+
     def test_get(self):
         self.client.set('foo', 'bar', self.expect(True))
         self.client.get('foo', [self.expect('bar'), self.finish])

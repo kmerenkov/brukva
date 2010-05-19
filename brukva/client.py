@@ -70,7 +70,7 @@ class Client(object):
         self.subscribed = False
         self.REPLY_MAP = dict_merge(
                 string_keys_to_dict('BGREWRITEAOF BGSAVE DEL EXISTS EXPIRE HDEL HEXISTS '
-                                    'HMSET MOVE MSET SAVE',
+                                    'HMSET MOVE MSET SAVE SETNX',
                                     bool),
                 string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SETEX SHUTDOWN '
                                     'RENAME RENAMENX',
@@ -293,6 +293,9 @@ class Client(object):
 
     def setex(self, key, ttl, value, callbacks=None):
         self.execute_command('SETEX', callbacks, key, ttl, value)
+
+    def setnx(self, key, value, callbacks=None):
+        self.execute_command('SETNX', callbacks, key, value)
 
     def mset(self, mapping, callbacks=None):
         items = []
