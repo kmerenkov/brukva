@@ -97,6 +97,12 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.keys('foo_*', [self.expect(['foo_a', 'foo_b']), self.finish])
         self.start()
 
+    def test_expire(self):
+        self.client.set('a', 1, self.expect(True))
+        self.client.expire('a', 10, self.expect(True))
+        self.client.ttl('a', [self.expect(10), self.finish])
+        self.start()
+
     def test_exists(self):
         self.client.set('a', 1, self.expect(True))
         self.client.exists('a', self.expect(True))

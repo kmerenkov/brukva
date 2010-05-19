@@ -69,8 +69,8 @@ class Client(object):
         self.current_task = None
         self.subscribed = False
         self.REPLY_MAP = dict_merge(
-                string_keys_to_dict('BGREWRITEAOF BGSAVE DEL EXISTS HDEL HEXISTS HMSET '
-                                    'MSET SAVE',
+                string_keys_to_dict('BGREWRITEAOF BGSAVE DEL EXISTS EXPIRE HDEL HEXISTS '
+                                    'HMSET MSET SAVE',
                                     bool),
                 string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SHUTDOWN',
                                     lambda r: r == 'OK'),
@@ -90,6 +90,7 @@ class Client(object):
                                     self.zset_score_pairs),
                 {'PING': lambda r: r == 'PONG'},
                 {'LASTSAVE': lambda t: datetime.fromtimestamp(int(t))},
+                {'TTL': lambda r: r != -1 and r or None},
             )
 
     def zset_score_pairs(self, response):
@@ -258,6 +259,12 @@ class Client(object):
     ### BASIC KEY COMMANDS
     def append(self, key, value, callbacks=None):
         self.execute_command('APPEND', callbacks, key, value)
+
+    def expire(self, key, ttl, callbacks=None):
+        self.execute_command('EXPIRE', callbacks, key, ttl)
+
+    def ttl(self, key, callbacks=None):
+        self.execute_command('TTL', callbacks, key)
 
     def substr(self, key, start, end, callbacks=None):
         self.execute_command('SUBSTR', callbacks, key, start, end)
