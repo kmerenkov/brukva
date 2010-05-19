@@ -103,6 +103,19 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.ttl('a', [self.expect(10), self.finish])
         self.start()
 
+    def test_type(self):
+        self.client.set('a', 1, self.expect(True))
+        self.client.type('a', self.expect('string'))
+        self.client.rpush('b', 1, self.expect(True))
+        self.client.type('b', self.expect('list'))
+        self.client.sadd('c', 1, self.expect(True))
+        self.client.type('c', self.expect('set'))
+        self.client.hset('d', 'a', 1, self.expect(True))
+        self.client.type('d', self.expect('hash'))
+        self.client.zadd('e', 1, 1, self.expect(True))
+        self.client.type('e', [self.expect('zset'), self.finish])
+        self.start()
+
     def test_exists(self):
         self.client.set('a', 1, self.expect(True))
         self.client.exists('a', self.expect(True))

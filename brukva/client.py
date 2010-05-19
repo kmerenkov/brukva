@@ -266,6 +266,9 @@ class Client(object):
     def ttl(self, key, callbacks=None):
         self.execute_command('TTL', callbacks, key)
 
+    def type(self, key, callbacks=None):
+        self.execute_command('TYPE', callbacks, key)
+
     def substr(self, key, start, end, callbacks=None):
         self.execute_command('SUBSTR', callbacks, key, start, end)
 
