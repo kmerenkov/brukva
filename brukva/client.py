@@ -72,7 +72,8 @@ class Client(object):
                 string_keys_to_dict('BGREWRITEAOF BGSAVE DEL EXISTS EXPIRE HDEL HEXISTS '
                                     'HMSET MSET SAVE',
                                     bool),
-                string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SHUTDOWN',
+                string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SHUTDOWN '
+                                    'RENAME RENAMENX',
                                     lambda r: r == 'OK'),
                 string_keys_to_dict('SMEMBERS SINTER SUNION SDIFF',
                                     set),
@@ -268,6 +269,12 @@ class Client(object):
 
     def type(self, key, callbacks=None):
         self.execute_command('TYPE', callbacks, key)
+
+    def rename(self, src, dst, callbacks=None):
+        self.execute_command('RENAME', callbacks, src, dst)
+
+    def renamenx(self, src, dst, callbacks=None):
+        self.execute_command('RENAMENX', callbacks, src, dst)
 
     def substr(self, key, start, end, callbacks=None):
         self.execute_command('SUBSTR', callbacks, key, start, end)

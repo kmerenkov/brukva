@@ -116,6 +116,13 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.type('e', [self.expect('zset'), self.finish])
         self.start()
 
+    def test_rename(self):
+        self.client.set('a', 1, self.expect(True))
+        self.client.rename('a', 'b', self.expect(True))
+        self.client.set('c', 1, self.expect(True))
+        self.client.renamenx('c', 'b', [self.expect(False), self.finish])
+        self.start()
+
     def test_exists(self):
         self.client.set('a', 1, self.expect(True))
         self.client.exists('a', self.expect(True))
