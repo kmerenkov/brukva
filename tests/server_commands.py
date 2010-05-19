@@ -123,6 +123,17 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.renamenx('c', 'b', [self.expect(False), self.finish])
         self.start()
 
+    def test_move(self):
+        self.client.select(8, self.expect(True))
+        self.client.delete('a', self.expect(True))
+        self.client.select(9, self.expect(True))
+        self.client.set('a', 1, self.expect(True))
+        self.client.move('a', 8, self.expect(True))
+        self.client.exists('a', self.expect(False))
+        self.client.select(8, self.expect(True))
+        self.client.get('a', [self.expect('1'), self.finish])
+        self.start()
+
     def test_exists(self):
         self.client.set('a', 1, self.expect(True))
         self.client.exists('a', self.expect(True))

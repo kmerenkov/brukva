@@ -70,7 +70,7 @@ class Client(object):
         self.subscribed = False
         self.REPLY_MAP = dict_merge(
                 string_keys_to_dict('BGREWRITEAOF BGSAVE DEL EXISTS EXPIRE HDEL HEXISTS '
-                                    'HMSET MSET SAVE',
+                                    'HMSET MOVE MSET SAVE',
                                     bool),
                 string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SHUTDOWN '
                                     'RENAME RENAMENX',
@@ -275,6 +275,9 @@ class Client(object):
 
     def renamenx(self, src, dst, callbacks=None):
         self.execute_command('RENAMENX', callbacks, src, dst)
+
+    def move(self, key, db, callbacks=None):
+        self.execute_command('MOVE', callbacks, key, db)
 
     def substr(self, key, start, end, callbacks=None):
         self.execute_command('SUBSTR', callbacks, key, start, end)
