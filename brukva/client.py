@@ -270,6 +270,9 @@ class Client(object):
     def type(self, key, callbacks=None):
         self.execute_command('TYPE', callbacks, key)
 
+    def randomkey(self, callbacks=None):
+        self.execute_command('RANDOMKEY', callbacks)
+
     def rename(self, src, dst, callbacks=None):
         self.execute_command('RENAME', callbacks, src, dst)
 

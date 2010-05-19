@@ -68,6 +68,14 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.get('foo', [self.expect('bar'), self.finish])
         self.start()
 
+    def test_randomkey(self):
+        self.client.set('a', 1, self.expect(True))
+        self.client.set('b', 1, self.expect(True))
+        self.client.randomkey(self.expect(lambda k: k in ['a', 'b']))
+        self.client.randomkey(self.expect(lambda k: k in ['a', 'b']))
+        self.client.randomkey([self.expect(lambda k: k in ['a', 'b']), self.finish])
+        self.start()
+
     def test_substr(self):
         self.client.set('foo', 'lorem ipsum', self.expect(True))
         self.client.substr('foo', 2, 4, [self.expect('rem'), self.finish])
