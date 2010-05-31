@@ -174,7 +174,7 @@ class Client(object):
     def schedule(self, command, callbacks, *args, **kwargs):
         self.queue.append(Task(command, callbacks, args, kwargs))
 
-    def _sudden_disconnect(self):
+    def _sudden_disconnect(self, callbacks):
         self.connection.disconnect()
         self.call_callbacks(callbacks, (ConnectionError("Socket closed on remote end"), None))
 
@@ -199,14 +199,14 @@ class Client(object):
 
     def _parse_value_response(self, callbacks, data):
         if not data:
-            self._sudden_disconnect()
+            self._sudden_disconnect(callbacks)
             return
         data = data[:-2] # strip \r\n
         self.call_callbacks(callbacks, (None, data))
 
     def _parse_command_response(self, callbacks, data):
         if not data:
-            self._sudden_disconnect()
+            self._sudden_disconnect(callbacks)
             return
         data = data[:-2] # strip \r\n
         if data == '$-1':
@@ -239,7 +239,7 @@ class Client(object):
         try:
             self.connection.write(self.format(cmd, *args, **kwargs))
         except IOError:
-            self._sudden_disconnect()
+            self._sudden_disconnect(callbacks)
             return
         self.schedule(cmd, callbacks, *args, **kwargs)
         self.try_to_loop()
