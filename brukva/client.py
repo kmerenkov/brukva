@@ -478,6 +478,16 @@ class Client(object):
             tokens.append('WITHSCORES')
         self.execute_command('ZREVRANGE', callbacks, *tokens)
 
+    def zrangebyscore(self, key, start, end, offset=None, limit=None, with_scores=False, callbacks=None):
+        tokens = [key, start, end]
+        if offset is not None:
+            tokens.append('LIMIT')
+            tokens.append(offset)
+            tokens.append(limit)
+        if with_scores:
+            tokens.append('WITHSCORES')
+        self.execute_command('ZRANGEBYSCORE', callbacks, *tokens)
+
     ### HASH COMMANDS
     def hgetall(self, key, callbacks=None):
         self.execute_command('HGETALL', callbacks, key)

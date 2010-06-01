@@ -277,7 +277,12 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.zrange('foo', 0, -1, False, self.expect(['a', 'b']))
         self.client.zrevrange('foo', 0, -1, True, self.expect([('b', 3.0), ('a', 2.0)]))
         self.client.zrevrange('foo', 0, -1, False, self.expect(['b', 'a']))
-        self.client.zcard('foo', [self.expect(2), self.finish])
+        self.client.zcard('foo', [self.expect(2)])
+        self.client.zadd('foo', 3.5, 'c', self.expect(1))
+        self.client.zrangebyscore('foo', '-inf', '+inf', None, None, False, self.expect(['a', 'b', 'c']))
+        self.client.zrangebyscore('foo', '2.1', '+inf', None, None, True, self.expect([('b', 3.0), ('c', 3.5)]))
+        self.client.zrangebyscore('foo', '-inf', '3.0', 0, 1, False, self.expect(['a']))
+        self.client.zrangebyscore('foo', '-inf', '+inf', 1, 2, False, [self.expect(['b', 'c']), self.finish()])
         self.start()
 
 
