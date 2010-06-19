@@ -1,4 +1,4 @@
-# -*- coding: utf -*-
+# -*- coding: utf-8 -*-
 import socket
 from tornado.ioloop import IOLoop
 from tornado.iostream import IOStream
@@ -487,6 +487,35 @@ class Client(object):
         if with_scores:
             tokens.append('WITHSCORES')
         self.execute_command('ZRANGEBYSCORE', callbacks, *tokens)
+
+    def zremrangebyrank(self, key, start, end, callbacks=None):
+        self.execute_command('ZREMRANGEBYRANK', callbacks, key, start, end)
+
+    def zremrangebyscore(self, key, start, end, callbacks=None):
+        self.execute_command('ZREMRANGEBYSCORE', callbacks, key, start, end)
+
+    def zinterstore(self, dest, keys, aggregate=None, callbacks=None):
+        return self._zaggregate('ZINTERSTORE', dest, keys, aggregate, callbacks)
+
+    def zunionstore(self, dest, keys, aggregate=None, callbacks=None):
+        return self._zaggregate('ZUNIONSTORE', dest, keys, aggregate, callbacks)
+
+    def _zaggregate(self, command, dest, keys, aggregate, callbacks):
+        tokens = [dest, len(keys)]
+        if isinstance(keys, dict):
+            items = keys.items()
+            keys = [i[0] for i in items]
+            weights = [i[1] for i in items]
+        else:
+            weights = None
+        tokens.extend(keys)
+        if weights:
+            tokens.append('WEIGHTS')
+            tokens.extend(weights)
+        if aggregate:
+            tokens.append('AGGREGATE')
+            tokens.append(aggregate)
+        return self.execute_command(command, callbacks, *tokens)
 
     ### HASH COMMANDS
     def hgetall(self, key, callbacks=None):

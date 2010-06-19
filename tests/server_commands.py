@@ -282,7 +282,71 @@ class ServerCommandsTestCase(TornadoTestCase):
         self.client.zrangebyscore('foo', '-inf', '+inf', None, None, False, self.expect(['a', 'b', 'c']))
         self.client.zrangebyscore('foo', '2.1', '+inf', None, None, True, self.expect([('b', 3.0), ('c', 3.5)]))
         self.client.zrangebyscore('foo', '-inf', '3.0', 0, 1, False, self.expect(['a']))
-        self.client.zrangebyscore('foo', '-inf', '+inf', 1, 2, False, [self.expect(['b', 'c']), self.finish()])
+        self.client.zrangebyscore('foo', '-inf', '+inf', 1, 2, False, self.expect(['b', 'c']))
+
+        self.client.delete('foo', self.expect(True))
+        self.client.zadd('foo', 1, 'a', self.expect(1))
+        self.client.zadd('foo', 2, 'b', self.expect(1))
+        self.client.zadd('foo', 3, 'c', self.expect(1))
+        self.client.zadd('foo', 4, 'd', self.expect(1))
+        self.client.zremrangebyrank('foo', 2, 4, self.expect(2))
+        self.client.zremrangebyscore('foo', 0, 2, [self.expect(2), self.finish()])
+
+        self.client.zadd('a', 1, 'a1', self.expect(1))
+        self.client.zadd('a', 1, 'a2', self.expect(1))
+        self.client.zadd('a', 1, 'a3', self.expect(1))
+        self.client.zadd('b', 2, 'a1', self.expect(1))
+        self.client.zadd('b', 2, 'a3', self.expect(1))
+        self.client.zadd('b', 2, 'a4', self.expect(1))
+        self.client.zadd('c', 6, 'a1', self.expect(1))
+        self.client.zadd('c', 5, 'a3', self.expect(1))
+        self.client.zadd('c', 4, 'a4', self.expect(1))
+
+        # ZINTERSTORE
+        # sum, no weight
+        self.client.zinterstore('z', ['a', 'b', 'c'], callbacks=self.expect(2))
+        self.client.zrange('z', 0, -1, with_scores=True, callbacks=self.expect([('a3', 8),
+                                                                                ('a1', 9),
+                                                                                ]))
+        # max, no weight
+        self.client.zinterstore('z', ['a', 'b', 'c'], aggregate='MAX', callbacks=self.expect(2))
+        self.client.zrange('z', 0, -1, with_scores=True, callbacks=self.expect([('a3', 5),
+                                                                                ('a1', 6),
+                                                                                ]))
+        # with weight
+        self.client.zinterstore('z', {'a': 1, 'b': 2, 'c': 3}, callbacks=self.expect(2))
+        self.client.zrange('z', 0, -1, with_scores=True, callbacks=[self.expect([('a3', 20),
+                                                                                 ('a1', 23),
+                                                                                 ]),
+                                                                    self.finish()])
+
+        # ZUNIONSTORE
+        # sum, no weight
+        self.client.zunionstore('z', ['a', 'b', 'c'], callbacks=self.expect(5))
+        self.client.zrange('z', 0, -1, with_scores=True, callbacks=self.expect([('a2', 1),
+                                                                                ('a3', 3),
+                                                                                ('a5', 4),
+                                                                                ('a4', 7),
+                                                                                ('a1', 9),
+                                                                                ]))
+        # max, no weight
+        self.client.zunionstore('z', ['a', 'b', 'c'], aggregate='MAX', callbacks=self.expect(5))
+        self.client.zrange('z', 0, -1, with_scores=True, callbacks=self.expect([('a2', 1),
+                                                                                ('a3', 2),
+                                                                                ('a5', 4),
+                                                                                ('a4', 5),
+                                                                                ('a1', 6),
+                                                                                ]))
+        # with weight
+        self.client.zunionstore('z', {'a': 1, 'b': 2, 'c': 3}, callbacks=self.expect(5))
+        self.client.zrange('z', 0, -1, with_scores=True, callbacks=[self.expect([('a2', 1),
+                                                                                 ('a3', 5),
+                                                                                 ('a5', 12),
+                                                                                 ('a4', 19),
+                                                                                 ('a1', 23),
+                                                                                 ]),
+                                                                    self.finish(),
+                                                                    ])
         self.start()
 
 
