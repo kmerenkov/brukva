@@ -90,7 +90,7 @@ class Client(object):
         self.current_task = None
         self.subscribed = False
         self.REPLY_MAP = dict_merge(
-                string_keys_to_dict('BGREWRITEAOF BGSAVE DEL EXISTS EXPIRE HDEL HEXISTS '
+                string_keys_to_dict('AUTH BGREWRITEAOF BGSAVE DEL EXISTS EXPIRE HDEL HEXISTS '
                                     'HMSET MOVE MSET MSETNX SAVE SETNX',
                                     bool),
                 string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SETEX SHUTDOWN '
@@ -281,6 +281,9 @@ class Client(object):
 
     def keys(self, pattern, callbacks=None):
         self.execute_command('KEYS', callbacks, pattern)
+
+    def auth(self, password, callbacks=None):
+        self.execute_command('AUTH', callbacks, password)
 
     ### BASIC KEY COMMANDS
     def append(self, key, value, callbacks=None):
