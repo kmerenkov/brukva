@@ -39,7 +39,7 @@ class TornadoTestCase(unittest.TestCase):
         def callback(result):
             (error, data) = result
             if error:
-                self.assertFalse(error)
+                self.assertFalse(error, data)
             if callable(expected):
                 self.assertTrue(expected(data))
             else:
@@ -347,6 +347,73 @@ class ServerCommandsTestCase(TornadoTestCase):
                                                                                  ]),
                                                                     self.finish(),
                                                                     ])
+        self.start()
+
+    def test_sort(self):
+        def make_list(key, items):
+            self.client.delete(key, callbacks=self.expect(True))
+            for i in items:
+                self.client.rpush(key, i)
+        self.client.sort('a', callbacks=self.expect([]))
+        make_list('a', '3214')
+        self.client.sort('a', callbacks=self.expect(['1', '2', '3', '4']))
+        self.client.sort('a', start=1, num=2, callbacks=self.expect(['2', '3']))
+
+        self.client.set('score:1', 8, callbacks=self.expect(True))
+        self.client.set('score:2', 3, callbacks=self.expect(True))
+        self.client.set('score:3', 5, callbacks=self.expect(True))
+        make_list('a_values', '123')
+        self.client.sort('a_values', by='score:*', callbacks=self.expect(['2', '3', '1']))
+
+        self.client.set('user:1', 'u1', callbacks=self.expect(True))
+        self.client.set('user:2', 'u2', callbacks=self.expect(True))
+        self.client.set('user:3', 'u3', callbacks=self.expect(True))
+
+        make_list('a', '231')
+        self.client.sort('a', get='user:*', callbacks=self.expect(['u1', 'u2', 'u3']))
+
+        make_list('a', '231')
+        self.client.sort('a', desc=True, callbacks=self.expect(['3', '2', '1']))
+
+        make_list('a', 'ecdba')
+        self.client.sort('a', alpha=True, callbacks=self.expect(['a', 'b', 'c', 'd', 'e']))
+
+        make_list('a', '231')
+        self.client.sort('a', store='sorted_values', callbacks=self.expect(3))
+        self.client.lrange('a', 0, -1, callbacks=self.expect(['1', '2', '3']))
+
+        self.client.set('user:1:username', 'zeus')
+        self.client.set('user:2:username', 'titan')
+        self.client.set('user:3:username', 'hermes')
+        self.client.set('user:4:username', 'hercules')
+        self.client.set('user:5:username', 'apollo')
+        self.client.set('user:6:username', 'athena')
+        self.client.set('user:7:username', 'hades')
+        self.client.set('user:8:username', 'dionysus')
+        self.client.set('user:1:favorite_drink', 'yuengling')
+        self.client.set('user:2:favorite_drink', 'rum')
+        self.client.set('user:3:favorite_drink', 'vodka')
+        self.client.set('user:4:favorite_drink', 'milk')
+        self.client.set('user:5:favorite_drink', 'pinot noir')
+        self.client.set('user:6:favorite_drink', 'water')
+        self.client.set('user:7:favorite_drink', 'gin')
+        self.client.set('user:8:favorite_drink', 'apple juice')
+        make_list('gods', '12345678')
+        self.client.sort('gods',
+                         start=2,
+                         num=4,
+                         by='user:*:username',
+                         get='user:*:favorite_drink',
+                         desc=True,
+                         alpha=True,
+                         store='sorted',
+                         callbacks=self.expect(4))
+        self.client.lrange('sorted', 0, -1, callbacks=[self.expect(['vodka',
+                                                                    'milk',
+                                                                    'gin',
+                                                                    'apple juice',
+                                                                    ]),
+                                                       self.finish()])
         self.start()
 
 

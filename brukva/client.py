@@ -344,6 +344,30 @@ class Client(object):
     def exists(self, key, callbacks=None):
         self.execute_command('EXISTS', callbacks, key)
 
+    def sort(self, key, start=None, num=None, by=None, get=None, desc=False, alpha=False, store=None, callbacks=None):
+        if (start is not None and num is None) or (num is not None and start is None):
+            raise ValueError("``start`` and ``num`` must both be specified")
+
+        tokens = [key]
+        if by is not None:
+            tokens.append('BY')
+            tokens.append(by)
+        if start is not None and num is not None:
+            tokens.append('LIMIT')
+            tokens.append(start)
+            tokens.append(num)
+        if get is not None:
+            tokens.append('GET')
+            tokens.append(get)
+        if desc:
+            tokens.append('DESC')
+        if alpha:
+            tokens.append('ALPHA')
+        if store is not None:
+            tokens.append('STORE')
+            tokens.append(store)
+        return self.execute_command('SORT', callbacks, *tokens)
+
     ### COUNTERS COMMANDS
     def incr(self, key, callbacks=None):
         self.execute_command('INCR', callbacks, key)
