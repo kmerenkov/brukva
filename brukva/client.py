@@ -2,9 +2,13 @@
 import socket
 from tornado.ioloop import IOLoop
 from tornado.iostream import IOStream
-import adisp
+from adisp import async, process
+
 from functools import partial
-from collections import namedtuple
+try:
+    from collections import namedtuple
+except:
+    from namedtuple import namedtuple
 from datetime import datetime
 from brukva.exceptions import RedisError, ConnectionError, ResponseError, InvalidResponse
 
@@ -42,6 +46,20 @@ def parse_info(response):
             info[key] = get_value(value)
     return info
 
+def encode(value):
+    if isinstance(value, str):
+        return value
+    elif isinstance(value, unicode):
+        return value.encode('utf-8')
+    # pray and hope
+    return str(value)
+
+def format(*tokens):
+    cmds = []
+    for t in tokens:
+        e_t = encode(t)
+        cmds.append('$%s\r\n%s\r\n' % (len(e_t), e_t))
+    return '*%s\r\n%s' % (len(tokens), ''.join(cmds))
 
 class Connection(object):
     def __init__(self, host, port, timeout=None, io_loop=None):
@@ -50,6 +68,8 @@ class Connection(object):
         self.timeout = timeout
         self._stream = None
         self._io_loop = io_loop
+
+        self.in_progress = False
 
     def connect(self):
         try:
@@ -84,9 +104,9 @@ class Connection(object):
 class Client(object):
     def __init__(self, host='localhost', port=6379, io_loop=None):
         self._io_loop = io_loop or IOLoop.instance()
+
         self.connection = Connection(host, port, io_loop=self._io_loop)
         self.queue = []
-        self.in_progress = False
         self.current_task = None
         self.subscribed = False
         self.REPLY_MAP = dict_merge(
@@ -116,6 +136,8 @@ class Client(object):
                 {'INFO': parse_info},
             )
 
+        self._pipeline = None
+
     def zset_score_pairs(self, response):
         if not response or not 'WITHSCORES' in self.current_task.command_args:
             return response
@@ -129,6 +151,12 @@ class Client(object):
 
     def disconnect(self):
         self.connection.disconnect()
+
+    def pipeline(self):
+        if not self._pipeline:
+            self._pipeline =  Pipeline(io_loop = self._io_loop)
+            self._pipeline.connection = self.connection
+        return self._pipeline
 
     def encode(self, value):
         if isinstance(value, str):
@@ -151,7 +179,7 @@ class Client(object):
             self.call_callbacks(self.current_task.callbacks, (error, None))
         else:
             self.call_callbacks(self.current_task.callbacks, (None, self.format_reply(self.current_task.command, data)))
-        self.in_progress = False
+        self.connection.in_progress = False
         self.try_to_loop()
 
     def call_callbacks(self, callbacks, *args, **kwargs):
@@ -164,8 +192,8 @@ class Client(object):
         return self.REPLY_MAP[command](data)
 
     def try_to_loop(self):
-        if not self.in_progress and self.queue:
-            self.in_progress = True
+        if not self.connection.in_progress and self.queue:
+            self.connection.in_progress = True
             self.current_task = self.queue.pop(0)
             self._io_loop.add_callback(self._process_response)
         elif not self.queue:
@@ -195,6 +223,7 @@ class Client(object):
 
     def _process_response(self, callbacks=None):
         callbacks = callbacks or [self.propogate_result]
+
         self.connection.readline(partial(self._parse_command_response, callbacks))
 
     def _parse_value_response(self, callbacks, data):
@@ -623,3 +652,142 @@ class Client(object):
             self.schedule('LISTEN', self.current_task.callbacks)
             self.try_to_loop()
 
+
+
+class CmdLine(object):
+    def __init__(self, cmd, *args, **kwargs):
+        self.cmd = cmd
+        self.args = args
+        self.kwargs = kwargs
+
+class RespLine(object):
+    def _init_(self, cmd, *args, **kwargs):
+        self.cmd = cmd
+        self.args = args
+        self.kwargs = kwargs
+
+class PipeTask(object):
+    def __init__(self, command_stack = [], callbacks =  []):
+        self.command_stack = command_stack
+        self.callbacks = callbacks
+
+        self.responses = []
+
+    def format_request(self): #FIXME transactional `MULTI` & `EXEC` add here maybe
+        return ''.join([format(c.cmd, *c.args, **c.kwargs) for c in self.command_stack])
+
+import time
+class Pipeline(Client):
+    def __init__(self, *args, **kwargs):
+        super(Pipeline, self).__init__(*args, **kwargs)
+        if 'transaction' in kwargs:
+            self.transaction = kwargs['transaction']
+        self.reset()
+
+    def reset(self):
+        self.pipe_task = None
+
+    def execute_command(self, cmd, callbacks, *args, **kwargs):
+        if cmd in ('AUTH', 'SELECT'):
+            raise Exception('not implntd')
+        if not self.pipe_task:
+            self.pipe_task = PipeTask()
+
+        self.pipe_task.command_stack.append(CmdLine(cmd, *args, **kwargs))
+
+    @process
+    def execute(self, callbacks):
+        while self.connection.in_progress:
+            time.sleep(0.1)
+        pipe_task = self.pipe_task
+        self.reset()
+
+        if callbacks is None:
+            callbacks = []
+        elif not hasattr(callbacks, '__iter__'):
+            callbacks = [callbacks]
+
+        request = pipe_task.format_request()
+        try:
+            self.connection.write(request)
+        except IOError:
+            self.reset()
+            self._sudden_disconnect(callbacks)
+            return
+
+        pipe_task.callbacks = callbacks
+
+        responses = []
+        num = 0
+        total = len(pipe_task.command_stack)
+        current = None
+
+
+        self.connection.in_progress = True
+        while num < total:
+            data = yield async(self.connection.readline)()
+            if not data:
+                break
+
+            response = yield self.process_data(data)
+
+
+            responses.append(response)
+            num += 1
+
+        self.connection.in_progress = False
+
+        result = []
+        for i in xrange(len(pipe_task.command_stack)):
+            res = self.format_reply(pipe_task.command_stack[i].cmd, responses[i])
+            result.append(res)
+
+        self.call_callbacks(callbacks, result)
+
+    @async
+    @process
+    def process_data(self, data, callback):
+        response = None
+        data = data[:-2] # strip \r\n
+        if data == '$-1':
+            response =  None
+        elif data == '*0' or data == '*-1':
+            response = []
+
+        head, tail = data[0], data[1:]
+
+        if head == '*':
+            response = yield self.consume_multibulk(int(tail))
+        elif head == '$':
+            response = yield self.consume_bulk(int(tail)+2)
+        elif head == '+':
+            response = tail
+        elif head == ':':
+            response = int(tail)
+        elif response == '-':
+            if tail.startwith('ERR'):
+                tail = tail[4:]
+            response = ResponseError(None, tail)
+        else:
+            response = ResponseError(None, 'Unknown response type %s' % head)
+        callback(response)
+
+    @async
+    @process
+    def consume_multibulk(self, length, callback):
+        tokens = []
+        while len(tokens) < length:
+            data = yield async(self.connection.readline)()
+            if not data:
+                break
+            token = yield self.process_data(data)
+            tokens.append( token )
+        callback(tokens)
+
+    @async
+    @process
+    def consume_bulk(self, length, callback):
+        data = yield async(self.connection.read)(length)
+        if not data:
+            callback(ResponseError(None, 'EmptyResponsePart in bulk'))
+        callback(data[:-2])
