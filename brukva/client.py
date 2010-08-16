@@ -5,17 +5,21 @@ from tornado.iostream import IOStream
 from adisp import async, process
 
 from functools import partial
-try:
-    from collections import namedtuple
-except:
-    from namedtuple import namedtuple
 from datetime import datetime
 from brukva.exceptions import RedisError, ConnectionError, ResponseError, InvalidResponse
 
+class Message(object):
+    def __init__(self, kind, channel, body):
+        self.kind = kind
+        self.channel = channel
+        self.body = body
 
-Message = namedtuple('Message', 'kind channel body')
-Task = namedtuple('Task', 'command callbacks command_args command_kwargs')
-
+class Task(object):
+    def __init__(self, command, callbacks, command_args, command_kwargs):
+        self.command = command
+        self.callbacks = callbacks
+        self.command_args = command_args
+        self.command_kwargs = command_kwargs
 
 def string_keys_to_dict(key_string, callback):
     return dict([(key, callback) for key in key_string.split()])
@@ -71,6 +75,8 @@ class Connection(object):
 
         self.in_progress = False
 
+        self.read_queue = []
+
     def connect(self):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
@@ -100,6 +106,10 @@ class Connection(object):
     def readline(self, callback):
         self._stream.read_until('\r\n', callback)
 
+    def try_to_perform_read(self):
+        if not self.in_progress and self.read_queue:
+            self.in_progress = True
+            self._io_loop.add_callback(partial(self.read_queue.pop(0), None) )
 
 class Client(object):
     def __init__(self, host='localhost', port=6379, io_loop=None):
@@ -137,6 +147,8 @@ class Client(object):
             )
 
         self._pipeline = None
+
+
 
     def zset_score_pairs(self, response):
         if not response or not 'WITHSCORES' in self.current_task.command_args:
@@ -652,13 +664,14 @@ class Client(object):
             self.schedule('LISTEN', self.current_task.callbacks)
             self.try_to_loop()
 
-
-
 class CmdLine(object):
     def __init__(self, cmd, *args, **kwargs):
         self.cmd = cmd
         self.args = args
         self.kwargs = kwargs
+
+    def __repr__(self):
+        return self.cmd + '(' + str(self.args)  + ',' + str(self.kwargs) + ')'
 
 class RespLine(object):
     def _init_(self, cmd, *args, **kwargs):
@@ -667,10 +680,9 @@ class RespLine(object):
         self.kwargs = kwargs
 
 class PipeTask(object):
-    def __init__(self, command_stack = [], callbacks =  []):
-        self.command_stack = command_stack
-        self.callbacks = callbacks
-
+    def __init__(self, command_stack = None, callbacks =  None):
+        self.command_stack = command_stack or []
+        self.callbacks = callbacks or []
         self.responses = []
 
     def format_request(self): #FIXME transactional `MULTI` & `EXEC` add here maybe
@@ -680,11 +692,7 @@ import time
 class Pipeline(Client):
     def __init__(self, *args, **kwargs):
         super(Pipeline, self).__init__(*args, **kwargs)
-        if 'transaction' in kwargs:
-            self.transaction = kwargs['transaction']
-        self.reset()
 
-    def reset(self):
         self.pipe_task = None
 
     def execute_command(self, cmd, callbacks, *args, **kwargs):
@@ -692,15 +700,23 @@ class Pipeline(Client):
             raise Exception('not implntd')
         if not self.pipe_task:
             self.pipe_task = PipeTask()
-
         self.pipe_task.command_stack.append(CmdLine(cmd, *args, **kwargs))
+
+    @async
+    def queue_wait(self, callback):
+        self.connection.read_queue.append(callback)
+        self.connection.try_to_perform_read()
+
+
+    def read_done(self):
+        self.connection.in_progress = False
+        self.connection.try_to_perform_read()
 
     @process
     def execute(self, callbacks):
-        while self.connection.in_progress:
-            time.sleep(0.1)
+        #import ipdb; ipdb.set_trace()
         pipe_task = self.pipe_task
-        self.reset()
+        self.pipe_task = None
 
         if callbacks is None:
             callbacks = []
@@ -711,36 +727,30 @@ class Pipeline(Client):
         try:
             self.connection.write(request)
         except IOError:
-            self.reset()
+            self.pipe_task = None
             self._sudden_disconnect(callbacks)
             return
 
         pipe_task.callbacks = callbacks
 
         responses = []
-        num = 0
         total = len(pipe_task.command_stack)
-        current = None
 
+        yield self.queue_wait()
 
-        self.connection.in_progress = True
-        while num < total:
+        while len(responses) < total:
             data = yield async(self.connection.readline)()
             if not data:
                 break
-
             response = yield self.process_data(data)
-
-
             responses.append(response)
-            num += 1
 
-        self.connection.in_progress = False
+        self.read_done()
 
-        result = []
-        for i in xrange(len(pipe_task.command_stack)):
-            res = self.format_reply(pipe_task.command_stack[i].cmd, responses[i])
-            result.append(res)
+        result = [
+            self.format_reply(cmd_line.cmd, resp)
+            for cmd_line, resp in zip(pipe_task.command_stack, responses)
+        ]
 
         self.call_callbacks(callbacks, result)
 
