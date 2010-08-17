@@ -8,6 +8,9 @@ from functools import partial
 from datetime import datetime
 from brukva.exceptions import RedisError, ConnectionError, ResponseError, InvalidResponse
 
+#DBG = True
+DBG = False
+
 class Message(object):
     def __init__(self, kind, channel, body):
         self.kind = kind
@@ -74,7 +77,6 @@ class Connection(object):
         self._io_loop = io_loop
 
         self.in_progress = False
-
         self.read_queue = []
 
     def connect(self):
@@ -110,6 +112,15 @@ class Connection(object):
         if not self.in_progress and self.read_queue:
             self.in_progress = True
             self._io_loop.add_callback(partial(self.read_queue.pop(0), None) )
+
+    @async
+    def queue_wait(self, callback):
+        self.read_queue.append(callback)
+        self.try_to_perform_read()
+
+    def read_done(self):
+        self.in_progress = False
+        self.try_to_perform_read()
 
 class Client(object):
     def __init__(self, host='localhost', port=6379, io_loop=None):
@@ -148,27 +159,28 @@ class Client(object):
 
         self._pipeline = None
 
-
-
-    def zset_score_pairs(self, response):
-        if not response or not 'WITHSCORES' in self.current_task.command_args:
-            return response
-        return zip(response[::2], map(float, response[1::2]))
-
     def __repr__(self):
         return 'Brukva client (host=%s, port=%s)' % (self.connection.host, self.connection.port)
-
-    def connect(self):
-        self.connection.connect()
-
-    def disconnect(self):
-        self.connection.disconnect()
 
     def pipeline(self):
         if not self._pipeline:
             self._pipeline =  Pipeline(io_loop = self._io_loop)
             self._pipeline.connection = self.connection
         return self._pipeline
+
+    #### connection
+    def connect(self):
+        self.connection.connect()
+
+    def disconnect(self):
+        self.connection.disconnect()
+    ####
+
+    #### formatting
+    def zset_score_pairs(self, response):
+        if not response or not 'WITHSCORES' in self.current_task.command_args:
+            return response
+        return zip(response[::2], map(float, response[1::2]))
 
     def encode(self, value):
         if isinstance(value, str):
@@ -185,6 +197,104 @@ class Client(object):
             cmds.append('$%s\r\n%s\r\n' % (len(e_t), e_t))
         return '*%s\r\n%s' % (len(tokens), ''.join(cmds))
 
+    def format_reply(self, command, data):
+        if command not in self.REPLY_MAP:
+            return data
+        return self.REPLY_MAP[command](data)
+    ####
+
+    #### new AsIO
+    @process
+    def execute_command(self, cmd, callbacks, *args, **kwargs):
+        if callbacks is None:
+            callbacks = []
+        elif not hasattr(callbacks, '__iter__'):
+            callbacks = [callbacks]
+        try:
+            self.connection.write(self.format(cmd, *args, **kwargs))
+        except IOError:
+            self._sudden_disconnect(callbacks)
+            return
+
+        yield self.connection.queue_wait()
+
+        data = yield async(self.connection.readline)()
+        if not data:
+            result = None
+            error = Exception('todo')
+        else:
+            error, response = yield self.process_data(data) # Fixme, what if error occured during process_data ?
+            result = self.format_reply(cmd, response)
+            #error = None
+
+        if DBG:
+            print "EC:RAW:RES: completed " + cmd
+        self.connection.read_done()
+
+        #if cmd.lower() == 'setex':
+        #import ipdb; ipdb.set_trace()
+
+
+        self.call_callbacks(callbacks, (error, result))
+
+    @async
+    @process
+    def process_data(self, data, callback):
+        response = None
+        error = None
+        if DBG:
+            print "PD:RAW:DATA: " + data
+        data = data[:-2] # strip \r\n
+
+        if data == '$-1':
+            response =  None
+        elif data == '*0' or data == '*-1':
+            response = []
+        else:
+            head, tail = data[0], data[1:]
+
+            if head == '*':
+                response = yield self.consume_multibulk(int(tail))
+            elif head == '$':
+                response = yield self.consume_bulk(int(tail)+2)
+            elif head == '+':
+                response = tail
+            elif head == ':':
+                response = int(tail)
+            elif response == '-':
+                if tail.startwith('ERR'): #FIXME error
+                    tail = tail[4:]
+                response = tail
+            else:
+                response = 'Unknown response type %s' % head
+        callback( (error, response) )
+
+    @async
+    @process
+    def consume_multibulk(self, length, callback):
+        tokens = []
+        while len(tokens) < length:
+            data = yield async(self.connection.readline)()
+            if not data:
+                break
+            if DBG:
+                print "CM:RAW:DATA: " + data
+            error, token = yield self.process_data(data) #FIXME error
+            tokens.append( token )
+        callback(tokens)
+
+    @async
+    @process
+    def consume_bulk(self, length, callback):
+        data = yield async(self.connection.read)(length)
+        if not data:
+            callback(Exception('EmptyResponsePart in bulk'))
+        if DBG:
+            print "CB:RAW:DATA: " + data
+        callback(data[:-2])
+    ####
+
+    #### old AsIO
     def propogate_result(self, result):
         (error, data) = result
         if error:
@@ -197,11 +307,6 @@ class Client(object):
     def call_callbacks(self, callbacks, *args, **kwargs):
         for cb in callbacks:
             cb(*args, **kwargs)
-
-    def format_reply(self, command, data):
-        if command not in self.REPLY_MAP:
-            return data
-        return self.REPLY_MAP[command](data)
 
     def try_to_loop(self):
         if not self.connection.in_progress and self.queue:
@@ -272,7 +377,7 @@ class Client(object):
         else:
             self.call_callbacks(callbacks, (InvalidResponse("Unknown response type for: %s" % self.current_task.command), None))
 
-    def execute_command(self, cmd, callbacks, *args, **kwargs):
+    def _execute_command(self, cmd, callbacks, *args, **kwargs):
         if callbacks is None:
             callbacks = []
         elif not hasattr(callbacks, '__iter__'):
@@ -284,7 +389,7 @@ class Client(object):
             return
         self.schedule(cmd, callbacks, *args, **kwargs)
         self.try_to_loop()
-
+    ####
 
     ### MAINTENANCE
     def bgrewriteaof(self, callbacks=None):
@@ -688,11 +793,9 @@ class PipeTask(object):
     def format_request(self): #FIXME transactional `MULTI` & `EXEC` add here maybe
         return ''.join([format(c.cmd, *c.args, **c.kwargs) for c in self.command_stack])
 
-import time
 class Pipeline(Client):
     def __init__(self, *args, **kwargs):
         super(Pipeline, self).__init__(*args, **kwargs)
-
         self.pipe_task = None
 
     def execute_command(self, cmd, callbacks, *args, **kwargs):
@@ -702,19 +805,8 @@ class Pipeline(Client):
             self.pipe_task = PipeTask()
         self.pipe_task.command_stack.append(CmdLine(cmd, *args, **kwargs))
 
-    @async
-    def queue_wait(self, callback):
-        self.connection.read_queue.append(callback)
-        self.connection.try_to_perform_read()
-
-
-    def read_done(self):
-        self.connection.in_progress = False
-        self.connection.try_to_perform_read()
-
     @process
     def execute(self, callbacks):
-        #import ipdb; ipdb.set_trace()
         pipe_task = self.pipe_task
         self.pipe_task = None
 
@@ -736,16 +828,15 @@ class Pipeline(Client):
         responses = []
         total = len(pipe_task.command_stack)
 
-        yield self.queue_wait()
+        yield self.connection.queue_wait()
 
         while len(responses) < total:
             data = yield async(self.connection.readline)()
             if not data:
                 break
-            response = yield self.process_data(data)
+            error, response = yield self.process_data(data)
             responses.append(response)
-
-        self.read_done()
+        self.connection.read_done()
 
         result = [
             self.format_reply(cmd_line.cmd, resp)
@@ -754,50 +845,4 @@ class Pipeline(Client):
 
         self.call_callbacks(callbacks, result)
 
-    @async
-    @process
-    def process_data(self, data, callback):
-        response = None
-        data = data[:-2] # strip \r\n
-        if data == '$-1':
-            response =  None
-        elif data == '*0' or data == '*-1':
-            response = []
 
-        head, tail = data[0], data[1:]
-
-        if head == '*':
-            response = yield self.consume_multibulk(int(tail))
-        elif head == '$':
-            response = yield self.consume_bulk(int(tail)+2)
-        elif head == '+':
-            response = tail
-        elif head == ':':
-            response = int(tail)
-        elif response == '-':
-            if tail.startwith('ERR'):
-                tail = tail[4:]
-            response = ResponseError(None, tail)
-        else:
-            response = ResponseError(None, 'Unknown response type %s' % head)
-        callback(response)
-
-    @async
-    @process
-    def consume_multibulk(self, length, callback):
-        tokens = []
-        while len(tokens) < length:
-            data = yield async(self.connection.readline)()
-            if not data:
-                break
-            token = yield self.process_data(data)
-            tokens.append( token )
-        callback(tokens)
-
-    @async
-    @process
-    def consume_bulk(self, length, callback):
-        data = yield async(self.connection.read)(length)
-        if not data:
-            callback(ResponseError(None, 'EmptyResponsePart in bulk'))
-        callback(data[:-2])
