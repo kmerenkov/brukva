@@ -1,9 +1,12 @@
 import brukva
+from brukva.exceptions import ResponseError
 import unittest
 import sys
 from datetime import datetime, timedelta
 from tornado.ioloop import IOLoop
 
+def callable(obj):
+    return hasattr(obj, '__call__')
 
 class CustomAssertionError(AssertionError):
     io_loop = None
@@ -37,7 +40,7 @@ class TornadoTestCase(unittest.TestCase):
 
     def expect(self, expected):
         def callback(result):
-            (error, data) = result
+            error, data = result
             if error:
                 self.assertFalse(error, data)
             if callable(expected):
@@ -46,12 +49,25 @@ class TornadoTestCase(unittest.TestCase):
                 self.assertEqual(expected, data)
         return callback
 
+    def pexpect(self, expected_list, list_without_errors=True):
+        if list_without_errors:
+            expected_list = [(None, el) for el in expected_list]
+        def callback(result):
+            for (e, d), (exp_e, exp_d)  in zip(result, expected_list):
+                if exp_e:
+                    self.assertTrue( isinstance(e, exp_e) )
+
+                if callable(exp_d):
+                    self.assertTrue(exp_d(d))
+                else:
+                    self.assertEqual(d, exp_d)
+        return callback
+
     def finish(self, *args):
         self.loop.stop()
 
     def start(self):
         self.loop.start()
-
 
 class ServerCommandsTestCase(TornadoTestCase):
     def test_set(self):
@@ -416,6 +432,59 @@ class ServerCommandsTestCase(TornadoTestCase):
                                                        self.finish()])
         self.start()
 
+
+class ServerCommandsWithPipelineTestCase(TornadoTestCase):
+    def set_trace(self, *args, **kwargs):
+        import ipdb
+        ipdb.set_trace()
+
+    def test_pipe_simple(self):
+        pipe = self.client.pipeline()
+        pipe.set('foo', '123')
+        pipe.set('bar', '456')
+        pipe.mget( ('foo', 'bar') )
+
+        pipe.execute([self.pexpect([True , True, ['123', '456',]]), self.finish])
+        self.start()
+
+    def test_pipe_error(self):
+        pipe = self.client.pipeline()
+        pipe.sadd('foo', 1)
+        pipe.sadd('foo', 2)
+        pipe.rpop('foo')
+
+        pipe.execute([self.pexpect([(None, True), (None, True), (ResponseError, None)], False), self.finish])
+        self.start()
+
+    def test_two_pipes(self):
+        pipe = self.client.pipeline()
+
+        pipe.rpush('foo', '1')
+        pipe.rpush('foo', '2')
+        pipe.lrange('foo', 0, -1)
+        pipe.execute([self.pexpect([True, 2, ['1', '2']]) ] )
+
+        pipe.sadd('bar', '3')
+        pipe.sadd('bar', '4')
+        pipe.smembers('bar')
+        pipe.scard('bar')
+        pipe.execute([self.pexpect([1, 1, set(['3', '4']), 2]), self.finish])
+
+        self.start()
+
+    def test_mix_with_pipe(self):
+        pipe = self.client.pipeline()
+
+        self.client.set('foo', '123', self.expect(True))
+        self.client.hmset('bar', {'zar': 'gza'},)
+
+        pipe.get('foo')
+        self.client.get('foo', self.expect('123') )
+
+        pipe.hgetall('bar')
+
+        pipe.execute([self.pexpect(['123', {'zar': 'gza'}]), self.finish])
+        self.start()
 
 if __name__ == '__main__':
     unittest.main()

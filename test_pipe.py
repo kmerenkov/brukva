@@ -34,6 +34,8 @@ p = c.pipeline()
 
 p.set('foo', 'bar')
 p.get('foo')
+p.set('bar', '123')
+p.mget(['foo', 'bar',])
 p.sadd('zar', '1')
 p.sadd('zar', '4')
 p.smembers('zar')

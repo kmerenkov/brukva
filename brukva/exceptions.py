@@ -7,12 +7,12 @@ class ConnectionError(RedisError):
 
 
 class ResponseError(RedisError):
-    def __init__(self, task, message):
-        self.task = task
+    def __init__(self, message, cmd_line):
         self.message = message
+        self.cmd_line = cmd_line
 
     def __repr__(self):
-        return 'ResponseError (on %s [%s, %s]): %s' % (self.task.command, self.task.command_args, self.task.command_kwargs, self.message)
+        return 'ResponseError (on %s [%s, %s]): %s' % (self.cmd_line.cmd, self.cmd_line.args, self.cmd_line.kwargs, self.message)
 
     __str__ = __repr__
 
