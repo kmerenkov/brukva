@@ -432,12 +432,7 @@ class ServerCommandsTestCase(TornadoTestCase):
                                                        self.finish()])
         self.start()
 
-
-class ServerCommandsWithPipelineTestCase(TornadoTestCase):
-    def set_trace(self, *args, **kwargs):
-        import ipdb
-        ipdb.set_trace()
-
+    ### Pipeline ###
     def test_pipe_simple(self):
         pipe = self.client.pipeline()
         pipe.set('foo', '123')
@@ -507,6 +502,33 @@ class ServerCommandsWithPipelineTestCase(TornadoTestCase):
         pipe.hgetall('bar')
 
         pipe.execute([self.pexpect(['123', {'zar': 'gza'}]), self.finish])
+        self.start()
+
+    def test_pipe_watch(self):
+        self.client.watch('foo', self.expect(True))
+        self.client.set('bar', 'zar', self.expect(True))
+        pipe = self.client.pipeline(transactional=True)
+        pipe.get('bar')
+        pipe.execute([self.pexpect(['zar',]), self.finish])
+        self.start()
+
+    def test_pipe_watch2(self):
+        self.client.set('foo', 'bar', self.expect(True))
+        self.client.watch('foo', self.expect(True))
+        self.client.set('foo', 'zar', self.expect(True))
+        pipe = self.client.pipeline(transactional=True)
+        pipe.get('foo')
+        pipe.execute([self.pexpect([]), self.finish])
+        self.start()
+
+    def test_pipe_unwatch(self):
+        self.client.set('foo', 'bar', self.expect(True))
+        self.client.watch('foo', self.expect(True))
+        self.client.set('foo', 'zar', self.expect(True))
+        self.client.unwatch(callbacks=self.expect(True))
+        pipe = self.client.pipeline(transactional=True)
+        pipe.get('foo')
+        pipe.execute([self.pexpect(['zar']), self.finish])
         self.start()
 
 if __name__ == '__main__':

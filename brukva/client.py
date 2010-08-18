@@ -137,7 +137,7 @@ class Client(object):
                                     'HMSET MOVE MSET MSETNX SAVE SETNX',
                                     bool),
                 string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SETEX SHUTDOWN '
-                                    'RENAME RENAMENX',
+                                    'RENAME RENAMENX WATCH UNWATCH',
                                     lambda r: r == 'OK'),
                 string_keys_to_dict('SMEMBERS SINTER SUNION SDIFF',
                                     set),
@@ -291,8 +291,7 @@ class Client(object):
 
             error, token = yield self.process_data(data, cmd_line) #FIXME error
             tokens.append( token )
-            if error:
-                errors.append( error )
+
         callback( (errors, tokens) )
 
     @async
@@ -688,6 +687,13 @@ class Client(object):
 
             self.call_callbacks(callbacks, (error, result) )
 
+    ### CAS
+    def watch(self, key, callbacks=None):
+        self.execute_command('WATCH', callbacks, key)
+
+    def unwatch(self, callbacks=None):
+        self.execute_command('UNWATCH', callbacks)
+
 class Pipeline(Client):
     def __init__(self, transactional, *args, **kwargs):
         super(Pipeline, self).__init__(*args, **kwargs)
@@ -698,6 +704,9 @@ class Pipeline(Client):
         if cmd in ('AUTH'):
             raise Exception('403')
         self.command_stack.append(CmdLine(cmd, *args, **kwargs))
+
+    def discard(self): # actually do nothing with redis-server, just flush command_stack
+        self.command_stack = []
 
     @process
     def execute(self, callbacks):
