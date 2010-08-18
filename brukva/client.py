@@ -67,6 +67,9 @@ def format(*tokens):
         cmds.append('$%s\r\n%s\r\n' % (len(e_t), e_t))
     return '*%s\r\n%s' % (len(tokens), ''.join(cmds))
 
+def format_pipeline_request(command_stack):
+    return ''.join(format(c.cmd, *c.args, **c.kwargs) for c in command_stack)
+
 class Connection(object):
     def __init__(self, host, port, timeout=None, io_loop=None):
         self.host = host
@@ -685,38 +688,21 @@ class Client(object):
 
             self.call_callbacks(callbacks, (error, result) )
 
-class RespLine(object):
-    def _init_(self, cmd, *args, **kwargs):
-        self.cmd = cmd
-        self.args = args
-        self.kwargs = kwargs
-
-class PipeTask(object):
-    def __init__(self, command_stack = None, callbacks =  None):
-        self.command_stack = command_stack or []
-        self.callbacks = callbacks or []
-        self.responses = []
-
-    def format_request(self):
-        return ''.join([format(c.cmd, *c.args, **c.kwargs) for c in self.command_stack])
-
 class Pipeline(Client):
     def __init__(self, transactional, *args, **kwargs):
-        self.transactional = transactional
         super(Pipeline, self).__init__(*args, **kwargs)
-        self.pipe_task = None
+        self.transactional = transactional
+        self.command_stack = []
 
     def execute_command(self, cmd, callbacks, *args, **kwargs):
         if cmd in ('AUTH'):
             raise Exception('403')
-        if not self.pipe_task:
-            self.pipe_task = PipeTask()
-        self.pipe_task.command_stack.append(CmdLine(cmd, *args, **kwargs))
+        self.command_stack.append(CmdLine(cmd, *args, **kwargs))
 
     @process
     def execute(self, callbacks):
-        pipe_task = self.pipe_task
-        self.pipe_task = None
+        command_stack = self.command_stack
+        self.command_stack = []
 
         if callbacks is None:
             callbacks = []
@@ -724,27 +710,22 @@ class Pipeline(Client):
             callbacks = [callbacks]
 
         if self.transactional:
-            pipe_task.command_stack = [CmdLine('MULTI')] + pipe_task.command_stack + [CmdLine('EXEC')]
+            command_stack = [CmdLine('MULTI')] + command_stack + [CmdLine('EXEC')]
 
-        request = pipe_task.format_request()
+        request =  format_pipeline_request(command_stack)
         try:
             self.connection.write(request)
         except IOError:
-            self.pipe_task = None
+            self.command_stack = []
             self._sudden_disconnect(callbacks)
             return
 
-        pipe_task.callbacks = callbacks
-
-        responses = []
-        total = len(pipe_task.command_stack)
-
         yield self.connection.queue_wait()
-
-        cmds = iter(pipe_task.command_stack)
+        responses = []
+        total = len(command_stack)
+        cmds = iter(command_stack)
         while len(responses) < total:
             data = yield async(self.connection.readline)()
-
             if not data:
                 break
             try:
@@ -775,10 +756,10 @@ class Pipeline(Client):
             else:
                 # FIXME: current error handling in multibulk didn't store relation between error and response
                 responses = zip(error, tr_responses)
-            result = format_replies(pipe_task.command_stack[1:], responses)
+            result = format_replies(command_stack[1:], responses)
 
         else:
-            result = format_replies(pipe_task.command_stack, responses)
+            result = format_replies(command_stack, responses)
 
         self.call_callbacks(callbacks, result)
 
