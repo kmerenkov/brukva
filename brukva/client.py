@@ -212,6 +212,10 @@ class Client(object):
         for cb in callbacks:
             cb(*args, **kwargs)
 
+    def _sudden_disconnect(self, callbacks):
+        self.connection.disconnect()
+        self.call_callbacks(callbacks, (ConnectionError("Socket closed on remote end"), None))
+
     @process
     def execute_command(self, cmd, callbacks, *args, **kwargs):
         if callbacks is None:
@@ -745,7 +749,7 @@ class Pipeline(Client):
                 break
             try:
                 cmd_line = cmds.next()
-                if self.transactional and cmd_line.cmd != 'EXEC':  # we must skip '+QUEUED\r\n' inside MULTI/EXEC
+                if self.transactional and cmd_line.cmd != 'EXEC':
                     error, response = yield self.process_data(data, CmdLine('MULTI_PART'))
                 else:
                     error, response = yield self.process_data(data, cmd_line)
