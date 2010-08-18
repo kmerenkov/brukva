@@ -447,6 +447,15 @@ class ServerCommandsWithPipelineTestCase(TornadoTestCase):
         pipe.execute([self.pexpect([True , True, ['123', '456',]]), self.finish])
         self.start()
 
+    def test_pipe_multi(self):
+        pipe = self.client.pipeline(transactional=True)
+        pipe.set('foo', '123')
+        pipe.set('bar', '456')
+        pipe.mget( ('foo', 'bar') )
+
+        pipe.execute([self.pexpect([True , True, ['123', '456',]]), self.finish])
+        self.start()
+
     def test_pipe_error(self):
         pipe = self.client.pipeline()
         pipe.sadd('foo', 1)
@@ -474,6 +483,20 @@ class ServerCommandsWithPipelineTestCase(TornadoTestCase):
 
     def test_mix_with_pipe(self):
         pipe = self.client.pipeline()
+
+        self.client.set('foo', '123', self.expect(True))
+        self.client.hmset('bar', {'zar': 'gza'},)
+
+        pipe.get('foo')
+        self.client.get('foo', self.expect('123') )
+
+        pipe.hgetall('bar')
+
+        pipe.execute([self.pexpect(['123', {'zar': 'gza'}]), self.finish])
+        self.start()
+
+    def test_mix_with_pipe_multi(self):
+        pipe = self.client.pipeline(transactional=True)
 
         self.client.set('foo', '123', self.expect(True))
         self.client.hmset('bar', {'zar': 'gza'},)
