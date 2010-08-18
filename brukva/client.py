@@ -154,6 +154,7 @@ class Client(object):
                 {'LASTSAVE': lambda t: datetime.fromtimestamp(int(t))},
                 {'TTL': lambda r: r != -1 and r or None},
                 {'INFO': parse_info},
+                {'MULTI_PART': lambda r: r == 'QUEUED'},
             )
 
         self._pipeline = None
@@ -161,9 +162,9 @@ class Client(object):
     def __repr__(self):
         return 'Brukva client (host=%s, port=%s)' % (self.connection.host, self.connection.port)
 
-    def pipeline(self):
+    def pipeline(self, transactional=False):
         if not self._pipeline:
-            self._pipeline =  Pipeline(io_loop = self._io_loop)
+            self._pipeline =  Pipeline(io_loop = self._io_loop, transactional=transactional)
             self._pipeline.connection = self.connection
         return self._pipeline
 
@@ -199,7 +200,11 @@ class Client(object):
     def format_reply(self, command, data):
         if command not in self.REPLY_MAP:
             return data
-        return self.REPLY_MAP[command](data)
+        try:
+            res =  self.REPLY_MAP[command](data)
+        except Exception, e:
+            res = ResponseError('failed to format reply, raw data: %s' % data, CmdLine(command))
+        return res
     ####
 
     #### new AsIO
@@ -692,7 +697,8 @@ class PipeTask(object):
         return ''.join([format(c.cmd, *c.args, **c.kwargs) for c in self.command_stack])
 
 class Pipeline(Client):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, transactional, *args, **kwargs):
+        self.transactional = transactional
         super(Pipeline, self).__init__(*args, **kwargs)
         self.pipe_task = None
 
@@ -713,6 +719,9 @@ class Pipeline(Client):
         elif not hasattr(callbacks, '__iter__'):
             callbacks = [callbacks]
 
+        if self.transactional:
+            pipe_task.command_stack = [CmdLine('MULTI')] + pipe_task.command_stack + [CmdLine('EXEC')]
+
         request = pipe_task.format_request()
         try:
             self.connection.write(request)
@@ -731,23 +740,41 @@ class Pipeline(Client):
         cmds = iter(pipe_task.command_stack)
         while len(responses) < total:
             data = yield async(self.connection.readline)()
+
             if not data:
                 break
             try:
-
-                error, response = yield self.process_data(data, cmds.next())
+                cmd_line = cmds.next()
+                if self.transactional and cmd_line.cmd != 'EXEC':  # we must skip '+QUEUED\r\n' inside MULTI/EXEC
+                    error, response = yield self.process_data(data, CmdLine('MULTI_PART'))
+                else:
+                    error, response = yield self.process_data(data, cmd_line)
             except Exception, e:
                 error, response  = e, None
 
             responses.append((error, response ) )
         self.connection.read_done()
 
-        result = []
-        for cmd_line, (error, resp) in zip(pipe_task.command_stack, responses):
-            if not error:
-                result.append((None,  self.format_reply(cmd_line.cmd, resp)))
+        def format_replies(cmd_lines, responses):
+            result = []
+            for cmd_line, (error, response) in zip(cmd_lines, responses):
+                if not error:
+                    result.append((None,  self.format_reply(cmd_line.cmd, response)))
+                else:
+                    result.append((error, response))
+            return result
+
+        if self.transactional:
+            error, tr_responses = responses[-1]
+            if not hasattr(error, '__iter__') or len(error) == 0:
+                responses = [(error, response) for response in tr_responses]
             else:
-                result.append((error, resp))
+                # FIXME: current error handling in multibulk didn't store relation between error and response
+                responses = zip(error, tr_responses)
+            result = format_replies(pipe_task.command_stack[1:], responses)
+
+        else:
+            result = format_replies(pipe_task.command_stack, responses)
 
         self.call_callbacks(callbacks, result)
 

@@ -30,7 +30,7 @@ def on_resp(res):
 c.set('gt', 'er', on_resp)
 c.get('gt', on_resp)
 
-p = c.pipeline()
+p = c.pipeline(transactional=True)
 
 p.set('foo', 'bar')
 p.get('foo')
@@ -45,6 +45,9 @@ ac( p.execute, [on_resp,])
 
 delayed(0.1, p.set, 'aaa', '132')
 delayed(0.1, p.set, 'bbb', 'eft')
+delayed(0.1, p.mget, ('aaa', 'bbb'))
+delayed(0.1, p.set, 'aaa', '13d2')
+delayed(0.1, p.set, 'bbb', 'efdt')
 delayed(0.1, p.mget, ('aaa', 'bbb'))
 delayed(0.1, p.execute, [on_resp,])
 
