@@ -283,7 +283,8 @@ class Client(object):
     @process
     def consume_multibulk(self, length, cmd_line, callback):
         tokens = []
-        errors = []
+        errors = {}
+        idx = 0
         while len(tokens) < length:
             data = yield async(self.connection.readline)()
             if not data:
@@ -291,7 +292,10 @@ class Client(object):
 
             error, token = yield self.process_data(data, cmd_line) #FIXME error
             tokens.append( token )
+            if error:
+                errors[idx] = error
 
+            idx += 1
         callback( (errors, tokens) )
 
     @async
@@ -751,6 +755,7 @@ class Pipeline(Client):
 
         def format_replies(cmd_lines, responses):
             result = []
+
             for cmd_line, (error, response) in zip(cmd_lines, responses):
                 if not error:
                     result.append((None,  self.format_reply(cmd_line.cmd, response)))
@@ -759,12 +764,13 @@ class Pipeline(Client):
             return result
 
         if self.transactional:
-            error, tr_responses = responses[-1]
-            if not hasattr(error, '__iter__') or len(error) == 0:
-                responses = [(error, response) for response in tr_responses]
-            else:
-                # FIXME: current error handling in multibulk didn't store relation between error and response
-                responses = zip(error, tr_responses)
+            command_stack = command_stack[:-1]
+            errors, tr_responses = responses[-1] # actual data only from EXEC command
+            responses = [
+                (errors.get(idx, None), tr_responses[idx])
+                for idx in xrange(len(tr_responses))
+            ]
+
             result = format_replies(command_stack[1:], responses)
 
         else:
