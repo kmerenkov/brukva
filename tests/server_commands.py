@@ -53,6 +53,7 @@ class TornadoTestCase(unittest.TestCase):
         if list_without_errors:
             expected_list = [(None, el) for el in expected_list]
         def callback(result):
+            self.assertEqual(len(result), len(expected_list) )
             for (e, d), (exp_e, exp_d)  in zip(result, expected_list):
                 if exp_e:
                     self.assertTrue( isinstance(e, exp_e) )
@@ -529,6 +530,87 @@ class ServerCommandsTestCase(TornadoTestCase):
         pipe = self.client.pipeline(transactional=True)
         pipe.get('foo')
         pipe.execute([self.pexpect(['zar']), self.finish])
+        self.start()
+
+    def test_pipe_zsets(self):
+        pipe = self.client.pipeline(transactional=True)
+
+        pipe.zadd('foo', 1, 'a')
+        pipe.zadd('foo', 2, 'b')
+        pipe.zscore('foo', 'a')
+        pipe.zscore('foo', 'b' )
+        pipe.zrank('foo', 'a', )
+        pipe.zrank('foo', 'b', )
+
+        pipe.zrange('foo', 0, -1, True )
+        pipe.zrange('foo', 0, -1, False)
+
+        pipe.execute([
+            self.pexpect([
+                1, 1,
+                1, 2,
+                0, 1,
+                [('a', 1.0), ('b', 2.0)],
+                ['a', 'b'],
+            ]),
+            self.finish,
+        ])
+
+    def test_pipe_zsets2(self):
+        pipe = self.client.pipeline(transactional=False)
+
+        pipe.zadd('foo', 1, 'a')
+        pipe.zadd('foo', 2, 'b')
+        pipe.zscore('foo', 'a')
+        pipe.zscore('foo', 'b' )
+        pipe.zrank('foo', 'a', )
+        pipe.zrank('foo', 'b', )
+
+        pipe.zrange('foo', 0, -1, True )
+        pipe.zrange('foo', 0, -1, False)
+
+        pipe.execute([
+            self.pexpect([
+                1, 1,
+                1, 2,
+                0, 1,
+                [('a', 1.0), ('b', 2.0)],
+                ['a', 'b'],
+            ]),
+            self.finish,
+        ])
+        self.start()
+
+    def test_pipe_hsets(self):
+        pipe = self.client.pipeline(transactional=True)
+        pipe.hset('foo', 'bar', 'aaa')
+        pipe.hset('foo', 'zar', 'bbb')
+        pipe.hgetall('foo')
+
+        pipe.execute([
+            self.pexpect([
+                True,
+                True,
+                {'bar': 'aaa', 'zar': 'bbb'}
+            ]),
+            self.finish,
+        ])
+        self.start()
+
+    def test_pipe_hsets2(self):
+        pipe = self.client.pipeline(transactional=False)
+        pipe.hset('foo', 'bar', 'aaa')
+        pipe.hset('foo', 'zar', 'bbb')
+        pipe.hgetall('foo')
+
+        pipe.execute([
+            self.pexpect([
+                True,
+                True,
+                {'bar': 'aaa', 'zar': 'bbb'}
+            ]),
+            self.finish,
+        ])
         self.start()
 
 if __name__ == '__main__':

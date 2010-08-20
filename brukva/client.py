@@ -5,6 +5,7 @@ from tornado.iostream import IOStream
 from adisp import async, process
 
 from functools import partial
+from itertools import izip
 from datetime import datetime
 from brukva.exceptions import RedisError, ConnectionError, ResponseError, InvalidResponse
 
@@ -30,27 +31,6 @@ def dict_merge(*dicts):
     merged = {}
     [merged.update(d) for d in dicts]
     return merged
-
-def parse_info(response):
-    info = {}
-    def get_value(value):
-        if ',' not in value:
-            return value
-        sub_dict = {}
-        for item in value.split(','):
-            k, v = item.split('=')
-            try:
-                sub_dict[k] = int(v)
-            except ValueError:
-                sub_dict[k] = v
-        return sub_dict
-    for line in response.splitlines():
-        key, value = line.split(':')
-        try:
-            info[key] = int(value)
-        except ValueError:
-            info[key] = get_value(value)
-    return info
 
 def encode(value):
     if isinstance(value, str):
@@ -124,6 +104,64 @@ class Connection(object):
         self.in_progress = False
         self.try_to_perform_read()
 
+def reply_to_bool(r, *args, **kwargs):
+    return bool(r)
+
+def make_reply_assert_msg(msg):
+    def reply_assert_msg(r, *args, **kwargs):
+        return r == msg
+    return reply_assert_msg
+
+def reply_set(r, *args, **kwargs):
+    return set(r)
+
+def reply_dict_from_pairs(r, *args, **kwargs):
+    return dict(izip(r[::2], r[1::2]))
+
+def reply_str(r, *args, **kwargs):
+    return r or ''
+
+def reply_int(r, *args, **kwargs):
+    return int(r) if r is not None else None
+
+def reply_float(r, *args, **kwargs):
+    return float(r) if r is not None else None
+
+def reply_datetime(r, *args, **kwargs):
+    return datetime.fromtimestamp(int(r))
+
+def reply_pubsub_message(r, *args, **kwargs):
+    return Message(*r)
+
+def reply_zset(r, *args, **kwargs):
+    if (not r ) or (not 'WITHSCORES' in args):
+        return r
+    return zip(r[::2], map(float, r[1::2]))
+
+def reply_info(response):
+    info = {}
+    def get_value(value):
+        if ',' not in value:
+            return value
+        sub_dict = {}
+        for item in value.split(','):
+            k, v = item.split('=')
+            try:
+                sub_dict[k] = int(v)
+            except ValueError:
+                sub_dict[k] = v
+        return sub_dict
+    for line in response.splitlines():
+        key, value = line.split(':')
+        try:
+            info[key] = int(value)
+        except ValueError:
+            info[key] = get_value(value)
+    return info
+
+def reply_ttl(r, *args, **kwargs):
+    return r != -1 and r or None
+
 class Client(object):
     def __init__(self, host='localhost', port=6379, io_loop=None):
         self._io_loop = io_loop or IOLoop.instance()
@@ -135,29 +173,29 @@ class Client(object):
         self.REPLY_MAP = dict_merge(
                 string_keys_to_dict('AUTH BGREWRITEAOF BGSAVE DEL EXISTS EXPIRE HDEL HEXISTS '
                                     'HMSET MOVE MSET MSETNX SAVE SETNX',
-                                    bool),
+                                    reply_to_bool),
                 string_keys_to_dict('FLUSHALL FLUSHDB SELECT SET SETEX SHUTDOWN '
                                     'RENAME RENAMENX WATCH UNWATCH',
-                                    lambda r: r == 'OK'),
+                                    make_reply_assert_msg('OK')),
                 string_keys_to_dict('SMEMBERS SINTER SUNION SDIFF',
-                                    set),
+                                    reply_set),
                 string_keys_to_dict('HGETALL',
-                                    lambda pairs: dict(zip(pairs[::2], pairs[1::2]))),
+                                    reply_dict_from_pairs),
                 string_keys_to_dict('HGET',
-                                    lambda r: r or ''),
+                                    reply_str),
                 string_keys_to_dict('SUBSCRIBE UNSUBSCRIBE LISTEN',
-                                    lambda r: Message(*r)),
+                                    reply_pubsub_message),
                 string_keys_to_dict('ZRANK ZREVRANK',
-                                    lambda r: int(r) if r is not None else None),
+                                    reply_int),
                 string_keys_to_dict('ZSCORE ZINCRBY',
-                                    lambda r: float(r) if r is not None else None),
+                                    reply_int),
                 string_keys_to_dict('ZRANGE ZRANGEBYSCORE ZREVRANGE',
-                                    self.zset_score_pairs),
-                {'PING': lambda r: r == 'PONG'},
-                {'LASTSAVE': lambda t: datetime.fromtimestamp(int(t))},
-                {'TTL': lambda r: r != -1 and r or None},
-                {'INFO': parse_info},
-                {'MULTI_PART': lambda r: r == 'QUEUED'},
+                                    reply_zset),
+                {'PING': make_reply_assert_msg('PONG')},
+                {'LASTSAVE': reply_datetime },
+                {'TTL': reply_ttl } ,
+                {'INFO': reply_info},
+                {'MULTI_PART': make_reply_assert_msg('QUEUED')},
             )
 
         self._pipeline = None
@@ -180,11 +218,6 @@ class Client(object):
     ####
 
     #### formatting
-    def zset_score_pairs(self, response):
-        if not response or not 'WITHSCORES' in self.current_task.command_args:
-            return response
-        return zip(response[::2], map(float, response[1::2]))
-
     def encode(self, value):
         if isinstance(value, str):
             return value
@@ -200,13 +233,13 @@ class Client(object):
             cmds.append('$%s\r\n%s\r\n' % (len(e_t), e_t))
         return '*%s\r\n%s' % (len(tokens), ''.join(cmds))
 
-    def format_reply(self, command, data):
-        if command not in self.REPLY_MAP:
+    def format_reply(self, cmd_line, data):
+        if cmd_line.cmd not in self.REPLY_MAP:
             return data
         try:
-            res =  self.REPLY_MAP[command](data)
+            res =  self.REPLY_MAP[cmd_line.cmd](data, *cmd_line.args, **cmd_line.kwargs)
         except Exception, e:
-            res = ResponseError('failed to format reply, raw data: %s' % data, CmdLine(command))
+            res = ResponseError('failed to format reply, raw data: %s' % data, cmd_line)
         return res
     ####
 
@@ -231,7 +264,7 @@ class Client(object):
             self._sudden_disconnect(callbacks)
             return
 
-        cmd_line = CmdLine(cmd, args, kwargs)
+        cmd_line = CmdLine(cmd, *args, **kwargs)
         yield self.connection.queue_wait()
 
         data = yield async(self.connection.readline)()
@@ -241,7 +274,7 @@ class Client(object):
         else:
             try:
                 error, response = yield self.process_data(data, cmd_line)
-                result = self.format_reply(cmd, response)
+                result = self.format_reply(cmd_line, response)
             except Exception, e:
                 error, result = e, None
 
@@ -681,11 +714,12 @@ class Client(object):
             callbacks = [callbacks]
 
         yield self.connection.queue_wait()
+        cmd_listen = CmdLine('LISTEN')
         while self.subscribed:
             data = yield async(self.connection.readline)()
             try:
-                error, response = yield self.process_data(data, CmdLine('LISTEN'))
-                result = self.format_reply('LISTEN', response)
+                error, response = yield self.process_data(data, cmd_listen)
+                result = self.format_reply(cmd_listen, response)
             except Exception, e:
                 error, result = e, None
 
@@ -758,7 +792,7 @@ class Pipeline(Client):
 
             for cmd_line, (error, response) in zip(cmd_lines, responses):
                 if not error:
-                    result.append((None,  self.format_reply(cmd_line.cmd, response)))
+                    result.append((None,  self.format_reply(cmd_line, response)))
                 else:
                     result.append((error, response))
             return result

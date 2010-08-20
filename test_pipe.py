@@ -46,7 +46,7 @@ p.scard('zar')
 c.zadd('nya', 1, 'n', on_resp)
 c.zadd('nya', 2, 'sf', on_resp)
 
-c.zrange('nya', 0, -1, with_scores=True, callbacks=on_resp)
+p.zrange('nya', 0, -1, with_scores=True, callbacks=on_resp)
 
 ac( p.execute, [on_resp,])
 
