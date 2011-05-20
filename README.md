@@ -1,3 +1,8 @@
+BIG FAT WARNING
+===============
+https://github.com/evilkost/brukva - go there if you want working brukva.
+In this repository brukva is very outdated and broken.
+
 brükva
 ========
 
